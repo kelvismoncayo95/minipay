@@ -1,0 +1,29 @@
+# Entorno virtual de Python
+venv/
+.venv/
+
+# Secretos (NUNCA subir)
+.env
+.env.local
+
+# Caché de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Caché de pytest
+.pytest_cache/
+
+# Caché de mypy y ruff (por si los agregamos)
+.mypy_cache/
+.ruff_cache/
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
