@@ -27,3 +27,8 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Documentos privados del proyecto (NO subir)
+docs/ESTADO_PROYECTO.md
+docs/DIARIO.md
+docs/CODIGO.md
