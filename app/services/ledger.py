@@ -9,7 +9,7 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Account, LedgerEntry, LedgerTransaction
+from app.models import Account, LedgerEntry, LedgerTransaction, User
 
 # Límites de la demo, en centavos (ver ESTADO 2.1).
 BALANCE_MIN = 100  # $1
@@ -18,6 +18,14 @@ BALANCE_MAX = 500_000  # $5.000
 
 class InvalidBalanceError(ValueError):
     """El saldo pedido no está permitido."""
+
+
+class InvalidTransferError(ValueError):
+    """La transferencia no es válida (monto, destinatario...)."""
+
+
+class InsufficientFundsError(ValueError):
+    """La cuenta no tiene saldo suficiente."""
 
 
 def get_balance(db: Session, account_id: uuid.UUID) -> int:
@@ -79,6 +87,50 @@ def set_balance(
     tx.entries = [
         LedgerEntry(account_id=banco.id, amount=-diferencia),
         LedgerEntry(account_id=cuenta.id, amount=diferencia),
+    ]
+    db.add(tx)
+    db.flush()
+    return tx
+
+
+def transfer(
+    db: Session, from_account_id: uuid.UUID, to_username: str, amount: int
+) -> LedgerTransaction:
+    """Pasa `amount` centavos de una cuenta a la de otra persona. No hace commit."""
+    if amount <= 0:
+        raise InvalidTransferError("El monto tiene que ser mayor que cero.")
+
+    destino = db.scalars(
+        select(Account)
+        .join(User, Account.user_id == User.id)
+        .where(User.username == to_username, User.role == "user")
+    ).first()
+    if destino is None:
+        raise InvalidTransferError("No existe una persona con ese usuario.")
+    if destino.id == from_account_id:
+        raise InvalidTransferError("No podés transferirte a vos mismo.")
+
+    # Bloqueamos las DOS cuentas, siempre en el mismo orden (por id).
+    # Si dos transferencias cruzadas (A→B y B→A) bloquearan en distinto orden,
+    # cada una esperaría a la otra para siempre (deadlock).
+    bloqueadas = db.scalars(
+        select(Account)
+        .where(Account.id.in_([from_account_id, destino.id]))
+        .order_by(Account.id)
+        .with_for_update()
+    ).all()
+    origen = next((a for a in bloqueadas if a.id == from_account_id), None)
+    if origen is None or origen.kind != "user":
+        raise InvalidTransferError("La cuenta de origen no puede transferir.")
+
+    # Con la fila bloqueada, este saldo ya no puede cambiar hasta el commit.
+    if get_balance(db, origen.id) < amount:
+        raise InsufficientFundsError("Saldo insuficiente.")
+
+    tx = LedgerTransaction(kind="transfer")
+    tx.entries = [
+        LedgerEntry(account_id=origen.id, amount=-amount),
+        LedgerEntry(account_id=destino.id, amount=amount),
     ]
     db.add(tx)
     db.flush()

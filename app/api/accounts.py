@@ -6,13 +6,22 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models import Account, User
-from app.schemas.accounts import BalanceOut, MovementOut, SetBalanceRequest
+from app.schemas.accounts import (
+    BalanceOut,
+    MovementOut,
+    SetBalanceRequest,
+    TransferOut,
+    TransferRequest,
+)
 from app.services.ledger import (
+    InsufficientFundsError,
     InvalidBalanceError,
+    InvalidTransferError,
     get_account_for_user,
     get_balance,
     list_entries,
     set_balance,
+    transfer,
 )
 
 router = APIRouter(prefix="/me", tags=["cuenta"])
@@ -51,6 +60,28 @@ def choose_balance(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(error)) from None
     db.commit()
     return BalanceOut(account_id=account.id, balance_cents=get_balance(db, account.id))
+
+
+@router.post("/transfers", response_model=TransferOut, status_code=status.HTTP_201_CREATED)
+def make_transfer(
+    body: TransferRequest,
+    user: User = Depends(get_current_user),
+    account: Account = Depends(get_my_account),
+    db: Session = Depends(get_db),
+) -> TransferOut:
+    """Mandarle dinero a otra persona."""
+    if user.role != "user":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Solo las personas pueden transferir.")
+    try:
+        tx = transfer(db, account.id, body.to_username, body.amount_cents)
+    except (InvalidTransferError, InsufficientFundsError) as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(error)) from None
+    db.commit()
+    return TransferOut(
+        transaction_id=tx.id,
+        amount_cents=body.amount_cents,
+        balance_cents=get_balance(db, account.id),
+    )
 
 
 @router.get("/movements", response_model=list[MovementOut])
