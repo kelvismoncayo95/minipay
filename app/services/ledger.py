@@ -5,6 +5,7 @@ Así varias operaciones pueden ir juntas en una sola transacción.
 """
 
 import uuid
+from datetime import timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -14,6 +15,9 @@ from app.models import Account, LedgerEntry, LedgerTransaction, User
 # Límites de la demo, en centavos (ver ESTADO 2.1).
 BALANCE_MIN = 100  # $1
 BALANCE_MAX = 500_000  # $5.000
+MAX_TRANSFER = 500_000  # $5.000 por operación
+DAILY_TRANSFER_LIMIT = 1_000_000  # $10.000 enviados por día (día UTC)
+BALANCE_CHANGES_PER_HOUR = 5
 
 
 class InvalidBalanceError(ValueError):
@@ -26,6 +30,42 @@ class InvalidTransferError(ValueError):
 
 class InsufficientFundsError(ValueError):
     """La cuenta no tiene saldo suficiente."""
+
+
+class LimitExceededError(ValueError):
+    """La operación supera un límite de monto (por operación o diario)."""
+
+
+class RateLimitError(ValueError):
+    """Demasiadas operaciones en poco tiempo."""
+
+
+def _count_balance_changes_last_hour(db: Session, account_id: uuid.UUID) -> int:
+    return db.scalar(
+        select(func.count())
+        .select_from(LedgerEntry)
+        .join(LedgerEntry.transaction)
+        .where(
+            LedgerEntry.account_id == account_id,
+            LedgerTransaction.kind == "balance_set",
+            LedgerTransaction.created_at > func.now() - timedelta(hours=1),
+        )
+    )
+
+
+def _sent_today(db: Session, account_id: uuid.UUID) -> int:
+    """Centavos enviados hoy (día UTC) por transferencias."""
+    enviado = db.scalar(
+        select(func.coalesce(func.sum(LedgerEntry.amount), 0))
+        .join(LedgerEntry.transaction)
+        .where(
+            LedgerEntry.account_id == account_id,
+            LedgerEntry.amount < 0,
+            LedgerTransaction.kind == "transfer",
+            LedgerTransaction.created_at >= func.date_trunc("day", func.now()),
+        )
+    )
+    return -enviado
 
 
 def get_balance(db: Session, account_id: uuid.UUID) -> int:
@@ -81,6 +121,10 @@ def set_balance(
     diferencia = new_balance - get_balance(db, cuenta.id)
     if diferencia == 0:
         return None
+    if _count_balance_changes_last_hour(db, cuenta.id) >= BALANCE_CHANGES_PER_HOUR:
+        raise RateLimitError(
+            f"Máximo {BALANCE_CHANGES_PER_HOUR} cambios de saldo por hora. Probá más tarde."
+        )
 
     banco = get_system_account(db)
     tx = LedgerTransaction(kind="balance_set")
@@ -99,6 +143,8 @@ def transfer(
     """Pasa `amount` centavos de una cuenta a la de otra persona. No hace commit."""
     if amount <= 0:
         raise InvalidTransferError("El monto tiene que ser mayor que cero.")
+    if amount > MAX_TRANSFER:
+        raise LimitExceededError(f"El máximo por operación es {MAX_TRANSFER} centavos.")
 
     destino = db.scalars(
         select(Account)
@@ -123,7 +169,11 @@ def transfer(
     if origen is None or origen.kind != "user":
         raise InvalidTransferError("La cuenta de origen no puede transferir.")
 
-    # Con la fila bloqueada, este saldo ya no puede cambiar hasta el commit.
+    # Con la fila bloqueada, saldo y total del día ya no pueden cambiar hasta el commit.
+    if _sent_today(db, origen.id) + amount > DAILY_TRANSFER_LIMIT:
+        raise LimitExceededError(
+            f"Superás el límite diario de {DAILY_TRANSFER_LIMIT} centavos enviados."
+        )
     if get_balance(db, origen.id) < amount:
         raise InsufficientFundsError("Saldo insuficiente.")
 

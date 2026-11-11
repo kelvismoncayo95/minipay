@@ -16,6 +16,8 @@ from app.schemas.accounts import (
 from app.services.ledger import (
     InsufficientFundsError,
     InvalidBalanceError,
+    LimitExceededError,
+    RateLimitError,
     InvalidTransferError,
     get_account_for_user,
     get_balance,
@@ -56,6 +58,8 @@ def choose_balance(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Solo las personas pueden elegir saldo.")
     try:
         set_balance(db, account.id, body.balance_cents)
+    except RateLimitError as error:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, str(error)) from None
     except InvalidBalanceError as error:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(error)) from None
     db.commit()
@@ -82,7 +86,12 @@ def make_transfer(
         tx, repetido = idempotent_transfer(
             db, user.id, account.id, idempotency_key, body.to_username, body.amount_cents
         )
-    except (InvalidTransferError, InsufficientFundsError, IdempotencyConflictError) as error:
+    except (
+        InvalidTransferError,
+        InsufficientFundsError,
+        LimitExceededError,
+        IdempotencyConflictError,
+    ) as error:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(error)) from None
     db.commit()
     if repetido:
