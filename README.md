@@ -6,7 +6,18 @@ Billetera digital de dinero de juguete. Demo pública para demostrar que se pued
 
 ## Estado
 
-En construcción. Pasos 0 a 3 completados: entorno, Docker Compose, esquema del libro contable con migraciones, datos demo y servicio de saldo. Ver [docs/Plan.md](docs/Plan.md).
+En construcción. Pasos 0 a 4 completados: entorno, Docker Compose, esquema del libro contable con migraciones, datos demo, servicio de saldo y login.
+
+## Probar la demo
+
+Usuarios: `ana`, `luis`, `marta`, `pedro`, `clinica-del-sur`, `admin`. Contraseña (pública, igual para todos): `demo1234`.
+
+```bash
+curl -X POST localhost:8000/auth/login -H "Content-Type: application/json" \
+  -d '{"username":"ana","password":"demo1234"}'
+```
+
+La documentación interactiva de la API está en `http://localhost:8000/docs`. Ver [docs/Plan.md](docs/Plan.md).
 
 ## Cómo funciona el dinero
 
@@ -31,7 +42,8 @@ source venv/bin/activate
 pip install -r requirements-dev.txt
 
 # 4. Crear el .env con POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB,
-#    DATABASE_URL y REDIS_URL (apuntando a localhost)
+#    DATABASE_URL y REDIS_URL (apuntando a localhost) y JWT_SECRET
+#    (generarlo con: python3 -c "import secrets; print(secrets.token_urlsafe(48))")
 
 # 5. Levantar la base y aplicar migraciones
 docker compose up -d postgres
