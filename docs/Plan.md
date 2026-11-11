@@ -18,11 +18,13 @@
 | 10 | Cola en segundo plano | worker con Arq; conciliación "todo suma cero" cada 15 min | ✅ 2026-11-11 |
 | 11 | Comprobantes PDF | comprobante de cada movimiento (ReportLab) | ⏳ |
 | 12 | Webhooks y reembolsos | aviso al comercio; reembolso total de un cobro | |
-| 13 | Frontend | HTML/CSS/JS vanilla, con aviso "dinero de mentira" | |
+| 13 | Frontend | HTML/CSS/JS vanilla, con aviso "dinero de mentira" | ✅ 2026-11-11 (adelantado) |
 | 14 | Deploy | demo pública en internet | |
 | 15 | CI | GitHub Actions: tests en cada push | |
 | 16 | Panel admin y control | el admin ve todo; verificación "todas las cuentas suman cero" | |
 | 17 | Cierre de portafolio | README final, capturas, decisiones explicadas | |
+
+**Orden cambiado el 2026-11-11 (pedido de Kelvis):** después del paso 10 se hace 13 → 14 → 15, y luego 11, 12, 16 y 17. Así se llega antes a una demo pública.
 
 ## Reglas de cada paso
 

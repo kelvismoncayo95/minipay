@@ -6,7 +6,9 @@ Billetera digital de dinero de juguete. Demo pública para demostrar que se pued
 
 ## Estado
 
-En construcción. Pasos 0 a 7 completados: entorno, Docker Compose, esquema del libro contable con migraciones, datos demo, login, API de saldo y movimientos, transferencias seguras ante concurrencia, idempotencia, límites, cobros de comercios y worker en segundo plano.
+En construcción. Pasos 0 a 7 completados: entorno, Docker Compose, esquema del libro contable con migraciones, datos demo, login, API de saldo y movimientos, transferencias seguras ante concurrencia, idempotencia, límites, cobros de comercios, worker en segundo plano y frontend web.
+
+**Frontend:** `http://localhost:8000/` (HTML, CSS y JavaScript sin frameworks, servido por la misma API). Botones para entrar como cada usuario demo; pantallas para persona, comercio y admin; funciona en el celular.
 
 **Conciliación automática:** un worker (Arq + Redis) suma todo el libro cada 15 minutos; tiene que dar exactamente 0. El admin la consulta en `GET /admin/reconciliation` o la corre en `POST /admin/reconciliation`.
 
