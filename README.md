@@ -6,7 +6,15 @@ Billetera digital de dinero de juguete. Demo pública para demostrar que se pued
 
 ## Estado
 
-En construcción. Paso 0 completado: entorno, .gitignore, README y test de humo.
+En construcción. Pasos 0 a 2 completados: entorno, Docker Compose y esquema del libro contable con migraciones. Ver [docs/Plan.md](docs/Plan.md).
+
+## Cómo funciona el dinero
+
+- **Libro de doble entrada:** cada movimiento tiene renglones que suman cero. El saldo se calcula, no se guarda.
+- **Centavos en enteros** (`BIGINT`), nunca `float`.
+- **Solo agregar:** los movimientos no se modifican ni se borran.
+
+Detalle en [docs/BackendSchema.md](docs/BackendSchema.md).
 
 ## Cómo correrlo (local)
 
@@ -20,31 +28,35 @@ python3 -m venv venv
 source venv/bin/activate
 
 # 3. Instalar dependencias
-pip install pytest
+pip install -r requirements-dev.txt
 
-# 4. Correr los tests
+# 4. Crear el .env con POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB,
+#    DATABASE_URL y REDIS_URL (apuntando a localhost)
+
+# 5. Levantar la base y aplicar migraciones
+docker compose up -d postgres
+alembic upgrade head
+
+# 6. Correr los tests
 pytest -v
 ```
+
+Para levantar todo (api + base + redis): `docker compose up -d` y probar `curl http://localhost:8000/health`.
 
 ## Stack
 
 - Python 3.12
-- FastAPI (a partir del paso 1)
-- PostgreSQL 17 (a partir del paso 1)
-- Redis (a partir del paso 1)
-- Docker Compose (a partir del paso 1)
+- FastAPI
+- PostgreSQL 17
+- SQLAlchemy 2 + Alembic
+- Redis
+- Docker Compose
 - pytest
 
 ## Documentación
 
-Los documentos de diseño están en `docs/`:
-
-- `PRD.md` — Qué es y para qué existe
-- `TRD.md` — Diseño técnico
-- `AppFlow.md` — Cómo navega el usuario
-- `UXUI.md` — Pantallas y mensajes
-- `BackendSchema.md` — Base de datos
-- `Plan.md` — Los 17 pasos
+- [docs/BackendSchema.md](docs/BackendSchema.md) — Base de datos y decisiones
+- [docs/Plan.md](docs/Plan.md) — Los 17 pasos
 
 ## Licencia
 
