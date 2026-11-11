@@ -15,6 +15,17 @@ class SetBalanceRequest(BaseModel):
     balance_cents: int
 
 
+class TransferRequest(BaseModel):
+    to_username: str
+    amount_cents: int
+
+
+class TransferOut(BaseModel):
+    transaction_id: uuid.UUID
+    amount_cents: int
+    balance_cents: int  # mi saldo después de transferir
+
+
 class MovementOut(BaseModel):
     transaction_id: uuid.UUID
     kind: str
