@@ -45,8 +45,16 @@ function mensajeDeError(data) {
 // Clave de idempotencia por envío de formulario.
 // Si se corta la red, el reintento usa LA MISMA clave → no se cobra dos veces.
 function claveDe(form) {
-  if (!form.dataset.key) form.dataset.key = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
+  if (!form.dataset.key) form.dataset.key = nuevaClave();
   return form.dataset.key;
+}
+
+// crypto.randomUUID solo existe en HTTPS o localhost. Por http (ej. desde el celular
+// por Tailscale) se arma una clave aleatoria con getRandomValues, que sí existe.
+function nuevaClave() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 // ---------- UI ----------
@@ -224,7 +232,7 @@ async function cargarCobros() {
         pagar.textContent = "Pagar";
         pagar.onclick = () =>
           conBoton(pagar, async () => {
-            pagar.dataset.key ||= crypto.randomUUID();
+            pagar.dataset.key ||= nuevaClave();
             await api("POST", `/me/charges/${c.id}/pay`, undefined, { "Idempotency-Key": pagar.dataset.key });
             avisar("Cobro pagado", "ok");
             await refrescar();
