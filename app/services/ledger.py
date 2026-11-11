@@ -20,6 +20,14 @@ DAILY_TRANSFER_LIMIT = 1_000_000  # $10.000 enviados por día (día UTC)
 BALANCE_CHANGES_PER_HOUR = 5
 
 
+def pesos(cents: int) -> str:
+    """Centavos → texto para personas: 500000 → "$5.000", 4550 → "$45,50"."""
+    enteros = f"{abs(cents) // 100:,}".replace(",", ".")
+    resto = abs(cents) % 100
+    signo = "-" if cents < 0 else ""
+    return f"{signo}${enteros}" + (f",{resto:02d}" if resto else "")
+
+
 class InvalidBalanceError(ValueError):
     """El saldo pedido no está permitido."""
 
@@ -107,7 +115,7 @@ def set_balance(
     """
     if not BALANCE_MIN <= new_balance <= BALANCE_MAX:
         raise InvalidBalanceError(
-            f"El saldo tiene que estar entre {BALANCE_MIN} y {BALANCE_MAX} centavos."
+            f"El saldo tiene que estar entre {pesos(BALANCE_MIN)} y {pesos(BALANCE_MAX)}."
         )
 
     # FOR UPDATE: bloquea la fila de la cuenta hasta el commit.
@@ -144,7 +152,7 @@ def transfer(
     if amount <= 0:
         raise InvalidTransferError("El monto tiene que ser mayor que cero.")
     if amount > MAX_TRANSFER:
-        raise LimitExceededError(f"El máximo por operación es {MAX_TRANSFER} centavos.")
+        raise LimitExceededError(f"El máximo por operación es {pesos(MAX_TRANSFER)}.")
 
     destino = db.scalars(
         select(Account)
@@ -168,7 +176,7 @@ def move_money(
     if amount <= 0:
         raise InvalidTransferError("El monto tiene que ser mayor que cero.")
     if amount > MAX_TRANSFER:
-        raise LimitExceededError(f"El máximo por operación es {MAX_TRANSFER} centavos.")
+        raise LimitExceededError(f"El máximo por operación es {pesos(MAX_TRANSFER)}.")
 
     # Bloqueamos las DOS cuentas, siempre en el mismo orden (por id).
     # Si dos operaciones cruzadas (A→B y B→A) bloquearan en distinto orden,
@@ -186,7 +194,7 @@ def move_money(
     # Con la fila bloqueada, saldo y total del día ya no pueden cambiar hasta el commit.
     if _sent_today(db, origen.id) + amount > DAILY_TRANSFER_LIMIT:
         raise LimitExceededError(
-            f"Superás el límite diario de {DAILY_TRANSFER_LIMIT} centavos enviados."
+            f"Superás el límite diario de {pesos(DAILY_TRANSFER_LIMIT)} enviados."
         )
     if get_balance(db, origen.id) < amount:
         raise InsufficientFundsError("Saldo insuficiente.")

@@ -83,3 +83,12 @@ def test_elegir_el_mismo_saldo_no_gasta_un_cambio(
     for monto in (100, 200, 300, 400, 500):
         set_balance(db, ana, monto)
     assert set_balance(db, ana, 500) is None  # no cambia nada → no cuenta ni falla
+
+
+def test_mensajes_en_pesos() -> None:
+    from app.services.ledger import pesos
+
+    assert pesos(500_000) == "$5.000"
+    assert pesos(4_550) == "$45,50"
+    assert pesos(100) == "$1"
+    assert pesos(1_000_000) == "$10.000"
