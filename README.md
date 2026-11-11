@@ -6,7 +6,7 @@ Billetera digital de dinero de juguete. Demo pública para demostrar que se pued
 
 ## Estado
 
-En construcción. Pasos 0 a 6 completados: entorno, Docker Compose, esquema del libro contable con migraciones, datos demo, login, API de saldo y movimientos, y transferencias seguras ante concurrencia.
+En construcción. Pasos 0 a 7 completados: entorno, Docker Compose, esquema del libro contable con migraciones, datos demo, login, API de saldo y movimientos, transferencias seguras ante concurrencia e idempotencia.
 
 | Endpoint | Qué hace |
 |---|---|
@@ -18,6 +18,15 @@ En construcción. Pasos 0 a 6 completados: entorno, Docker Compose, esquema del 
 | `GET /me/movements` | mis últimos 50 movimientos |
 
 **Concurrencia:** dos transferencias simultáneas desde la misma cuenta no pueden dejarla en negativo. Cada transferencia bloquea las dos cuentas (`SELECT ... FOR UPDATE`, siempre en el mismo orden para evitar deadlocks). Hay un test que lanza dos hilos a la vez y que **falla si se quita el bloqueo** (comprobado).
+
+**Idempotencia:** `POST /me/transfers` exige el header `Idempotency-Key` (un UUID nuevo por transferencia). Si el mismo pedido llega dos veces (doble click, reintento por mala señal), se cobra **una sola vez** y la segunda respuesta trae `Idempotent-Replayed: true`. Funciona también con los dos pedidos llegando al mismo tiempo (`INSERT ... ON CONFLICT DO NOTHING`).
+
+```bash
+curl -X POST localhost:8000/me/transfers \
+  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(python3 -c 'import uuid; print(uuid.uuid4())')" \
+  -d '{"to_username":"luis","amount_cents":10000}'
+```
 
 ## Probar la demo
 

@@ -12,8 +12,8 @@
 | 4 | Login | `password_hash`, contraseña demo, token de sesión | ✅ 2026-11-11 |
 | 5 | API de saldo y movimientos | endpoints para ver saldo, elegir saldo e historial | ✅ 2026-11-11 |
 | 6 | Transferencias | Ana → Luis, con bloqueo de filas (sin saldos negativos con concurrencia) | ✅ 2026-11-11 |
-| 7 | Idempotencia | la misma operación enviada dos veces se cobra una sola vez | ⏳ |
-| 8 | Límites | máximo por operación, límite diario, 5 cambios de saldo por hora (Redis) | |
+| 7 | Idempotencia | la misma operación enviada dos veces se cobra una sola vez | ✅ 2026-11-11 |
+| 8 | Límites | máximo por operación, límite diario, 5 cambios de saldo por hora (Redis) | ⏳ |
 | 9 | Comercios y cobros | la Clínica del Sur (demo) cobra a un usuario | |
 | 10 | Cola en segundo plano | worker con Arq para tareas lentas | |
 | 11 | Comprobantes PDF | comprobante de cada movimiento (ReportLab) | |
