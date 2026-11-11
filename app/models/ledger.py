@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Text, func
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Identity, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -21,6 +21,9 @@ class LedgerTransaction(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    # Número de orden que pone la base (1, 2, 3…). Es interno: nunca se muestra en la API.
+    # Sirve para ordenar sin empates: dos movimientos pueden tener el mismo created_at.
+    seq: Mapped[int] = mapped_column(BigInteger, Identity(), unique=True)
     kind: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

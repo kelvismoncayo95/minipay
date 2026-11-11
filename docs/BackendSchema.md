@@ -99,12 +99,14 @@
 | Columna | Tipo | Reglas | Para qué |
 |---|---|---|---|
 | `id` | `UUID` | clave primaria | identificador |
+| `seq` | `BIGINT` | `NOT NULL`, `IDENTITY`, `UNIQUE` | orden interno 1, 2, 3… (paso 5). No se muestra en la API |
 | `kind` | `TEXT` | `NOT NULL`, `CHECK (kind IN ('balance_set','transfer'))` | tipo de movimiento |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL`, default `now()` | cuándo pasó |
 
 - `balance_set`: cambio de saldo entre el Banco de juguete y una persona.
 - `transfer`: transferencia entre dos personas.
 - Cobros y reembolsos se agregan a `kind` en sus pasos.
+- **Por qué `seq`:** `now()` en PostgreSQL devuelve la hora de inicio de la transacción, así que dos movimientos pueden tener el mismo `created_at`. El historial se ordena por `seq`, que nunca empata. Migración `5db1b39c3d48`.
 
 ### 3.4 `ledger_entries` (los renglones) — decidido 2026-11-11
 
