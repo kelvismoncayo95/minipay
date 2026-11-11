@@ -77,3 +77,11 @@ def test_comercio_no_elige_saldo(client: TestClient) -> None:
 def test_sin_token_rechazado(client: TestClient) -> None:
     assert client.get("/me/balance").status_code == 401
     assert client.get("/me/movements").status_code == 401
+
+
+def test_sexto_cambio_de_saldo_en_una_hora_da_429(client: TestClient) -> None:
+    h = auth(client, "ana")
+    for monto in (100, 200, 300, 400, 500):
+        assert client.put("/me/balance", json={"balance_cents": monto}, headers=h).status_code == 200
+    r = client.put("/me/balance", json={"balance_cents": 600}, headers=h)
+    assert r.status_code == 429
