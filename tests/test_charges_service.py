@@ -76,7 +76,8 @@ def test_solo_el_pagador_ve_y_paga_su_cobro(db: Session, g: dict) -> None:
 
 
 def test_pagar_sin_saldo_deja_el_cobro_pendiente(db: Session, g: dict) -> None:
-    charge = create_charge(db, g["clinica"], "ana", 200_000, "Cirugía")
+    set_balance(db, g["c_ana"].id, 10_000)  # Ana tiene US$100
+    charge = create_charge(db, g["clinica"], "ana", 50_000, "Cirugía")  # le cobran US$500
     with pytest.raises(InsufficientFundsError):
         pay_charge(db, charge.id, g["ana"].id)
     db.refresh(charge)

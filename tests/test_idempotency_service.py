@@ -73,14 +73,15 @@ def test_la_clave_es_por_usuario(db: Session, gente: dict) -> None:
 
 
 def test_si_falla_la_clave_no_queda_usada(db: Session, gente: dict) -> None:
+    set_balance(db, gente["cuenta_ana"].id, 30_000)  # Ana tiene US$300
     with pytest.raises(InsufficientFundsError):
         idempotent_transfer(
-            db, gente["ana"].id, gente["cuenta_ana"].id, "clave-0001", "luis", 500_000
+            db, gente["ana"].id, gente["cuenta_ana"].id, "clave-0001", "luis", 40_000
         )
-    # Ana carga más saldo y reintenta con la MISMA clave: ahora sí sale.
-    set_balance(db, gente["cuenta_ana"].id, 500_000)
+    # Ana recibe más saldo y reintenta con la MISMA clave: ahora sí sale.
+    set_balance(db, gente["cuenta_ana"].id, 40_000)
     _, repetido = idempotent_transfer(
-        db, gente["ana"].id, gente["cuenta_ana"].id, "clave-0001", "luis", 500_000
+        db, gente["ana"].id, gente["cuenta_ana"].id, "clave-0001", "luis", 40_000
     )
     assert repetido is False
     assert get_balance(db, gente["cuenta_ana"].id) == 0

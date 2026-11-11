@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
-from app.api import accounts, admin, auth, charges
+from app.api import accounts, admin, auth, charges, demo
 
 app = FastAPI(
     title="minipay",
@@ -28,6 +28,7 @@ app.include_router(accounts.router)
 app.include_router(charges.merchant_router)
 app.include_router(charges.payer_router)
 app.include_router(admin.router)
+app.include_router(demo.router)
 
 
 @app.get("/health")

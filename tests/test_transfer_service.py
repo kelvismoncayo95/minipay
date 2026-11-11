@@ -51,14 +51,16 @@ def test_transferencia_mueve_el_dinero(db: Session, cuentas: dict[str, Account])
 
 
 def test_se_puede_transferir_todo_el_saldo(db: Session, cuentas: dict[str, Account]) -> None:
-    transfer(db, cuentas["ana"].id, "luis", 100_000)
+    transfer(db, cuentas["ana"].id, "luis", 50_000)
+    transfer(db, cuentas["ana"].id, "luis", 50_000)
     assert get_balance(db, cuentas["ana"].id) == 0
 
 
 def test_saldo_insuficiente(db: Session, cuentas: dict[str, Account]) -> None:
+    set_balance(db, cuentas["ana"].id, 20_000)  # Ana tiene US$200
     with pytest.raises(InsufficientFundsError):
-        transfer(db, cuentas["ana"].id, "luis", 100_001)
-    assert get_balance(db, cuentas["ana"].id) == 100_000
+        transfer(db, cuentas["ana"].id, "luis", 20_001)
+    assert get_balance(db, cuentas["ana"].id) == 20_000
 
 
 @pytest.mark.parametrize("monto", [0, -500])

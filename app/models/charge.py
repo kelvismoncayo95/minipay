@@ -11,13 +11,14 @@ from app.models.user import User
 
 
 class Charge(Base):
-    """Cobro: pending → paid (se movió el dinero) o rejected (la persona lo rechazó)."""
+    """Cobro: pending → paid (se movió el dinero), rejected (la persona lo rechazó)
+    o expired (venció en el reinicio diario)."""
 
     __tablename__ = "charges"
     __table_args__ = (
         CheckConstraint("amount > 0", name="ck_charges_amount_positive"),
         CheckConstraint(
-            "status IN ('pending', 'paid', 'rejected')",
+            "status IN ('pending', 'paid', 'rejected', 'expired')",
             name="ck_charges_status",
         ),
         CheckConstraint(

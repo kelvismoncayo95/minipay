@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
 from app.services.auth import InvalidTokenError, decode_access_token
+from app.services.daily_reset import ensure_daily_reset
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -31,4 +32,9 @@ def get_current_user(
     user = db.get(User, user_id)
     if user is None:
         raise no_autorizado
+
+    # Si pasaron las 3:00 (Uruguay) y nadie reinició todavía, se reinicia ahora.
+    # Así funciona aunque el servidor haya estado dormido a esa hora (Render gratis).
+    if ensure_daily_reset(db):
+        db.commit()
     return user

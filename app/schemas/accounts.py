@@ -11,10 +11,6 @@ class BalanceOut(BaseModel):
     balance_cents: int
 
 
-class SetBalanceRequest(BaseModel):
-    balance_cents: int
-
-
 class TransferRequest(BaseModel):
     to_username: str
     amount_cents: int
