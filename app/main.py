@@ -1,6 +1,9 @@
 """API de minipay: punto de entrada."""
 
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.api import accounts, admin, auth, charges
 
@@ -21,3 +24,11 @@ app.include_router(admin.router)
 def health() -> dict[str, str]:
     """Smoke test: la API está viva."""
     return {"status": "ok"}
+
+
+# Frontend (HTML/CSS/JS). Va AL FINAL: las rutas de la API de arriba tienen prioridad.
+app.mount(
+    "/",
+    StaticFiles(directory=Path(__file__).parent / "static", html=True),
+    name="frontend",
+)
