@@ -6,7 +6,7 @@ Billetera digital de dinero de juguete. Demo pública para demostrar que se pued
 
 ## Estado
 
-En construcción. Pasos 0 a 2 completados: entorno, Docker Compose y esquema del libro contable con migraciones. Ver [docs/Plan.md](docs/Plan.md).
+En construcción. Pasos 0 a 3 completados: entorno, Docker Compose, esquema del libro contable con migraciones, datos demo y servicio de saldo. Ver [docs/Plan.md](docs/Plan.md).
 
 ## Cómo funciona el dinero
 
@@ -37,7 +37,10 @@ pip install -r requirements-dev.txt
 docker compose up -d postgres
 alembic upgrade head
 
-# 6. Correr los tests
+# 6. Cargar los datos demo (se puede repetir sin duplicar)
+python3 -m app.seed
+
+# 7. Correr los tests (usan una base aparte: <nombre>_test)
 pytest -v
 ```
 

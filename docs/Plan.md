@@ -8,8 +8,8 @@
 | 0 | Entorno | venv, `.gitignore`, README, test de humo | ✅ 2026-11-09 |
 | 1 | Docker Compose | api + PostgreSQL + Redis, `GET /health` | ✅ 2026-11-10 |
 | 2 | Esquema del libro | 4 tablas, modelos, Alembic, tests de constraints | ✅ 2026-11-11 |
-| 3 | Datos demo y saldo | usuarios demo + Banco de juguete; servicio para calcular y elegir saldo | ⏳ |
-| 4 | Login | `password_hash`, contraseña demo, token de sesión | |
+| 3 | Datos demo y saldo | usuarios demo + Banco de juguete; servicio para calcular y elegir saldo | ✅ 2026-11-11 |
+| 4 | Login | `password_hash`, contraseña demo, token de sesión | ⏳ |
 | 5 | API de saldo y movimientos | endpoints para ver saldo, elegir saldo e historial | |
 | 6 | Transferencias | Ana → Luis, con bloqueo de filas (sin saldos negativos con concurrencia) | |
 | 7 | Idempotencia | la misma operación enviada dos veces se cobra una sola vez | |
