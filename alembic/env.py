@@ -18,11 +18,14 @@ if config.config_file_name is not None:
 # Alembic compara esta "foto" de los modelos con la base real.
 target_metadata = Base.metadata
 
+# Los tests pasan otra URL (la base de tests); si no, se usa la del .env.
+database_url = config.attributes.get("database_url", settings.database_url)
+
 
 def run_migrations_offline() -> None:
     """Genera el SQL sin conectarse a la base."""
     context.configure(
-        url=settings.database_url,
+        url=database_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -34,7 +37,7 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Se conecta a la base y aplica las migraciones."""
-    connectable = create_engine(settings.database_url, poolclass=pool.NullPool)
+    connectable = create_engine(database_url, poolclass=pool.NullPool)
 
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)
