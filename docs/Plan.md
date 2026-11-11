@@ -14,8 +14,8 @@
 | 6 | Transferencias | Ana → Luis, con bloqueo de filas (sin saldos negativos con concurrencia) | ✅ 2026-11-11 |
 | 7 | Idempotencia | la misma operación enviada dos veces se cobra una sola vez | ✅ 2026-11-11 |
 | 8 | Límites | máximo por operación, límite diario, 5 cambios de saldo por hora (contados en la base, bajo el bloqueo) | ✅ 2026-11-11 |
-| 9 | Comercios y cobros | la Clínica del Sur (demo) cobra a un usuario | ⏳ |
-| 10 | Cola en segundo plano | worker con Arq para tareas lentas | |
+| 9 | Comercios y cobros | la Clínica del Sur (demo) cobra a un usuario | ✅ 2026-11-11 |
+| 10 | Cola en segundo plano | worker con Arq para tareas lentas | ⏳ |
 | 11 | Comprobantes PDF | comprobante de cada movimiento (ReportLab) | |
 | 12 | Webhooks y reembolsos | aviso al comercio; reembolso total de un cobro | |
 | 13 | Frontend | HTML/CSS/JS vanilla, con aviso "dinero de mentira" | |

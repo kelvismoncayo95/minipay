@@ -6,7 +6,7 @@ Billetera digital de dinero de juguete. Demo pública para demostrar que se pued
 
 ## Estado
 
-En construcción. Pasos 0 a 7 completados: entorno, Docker Compose, esquema del libro contable con migraciones, datos demo, login, API de saldo y movimientos, transferencias seguras ante concurrencia, idempotencia y límites.
+En construcción. Pasos 0 a 7 completados: entorno, Docker Compose, esquema del libro contable con migraciones, datos demo, login, API de saldo y movimientos, transferencias seguras ante concurrencia, idempotencia, límites y cobros de comercios.
 
 **Límites de la demo:** saldo de $1 a $5.000; máximo $5.000 por transferencia; $10.000 enviados por día (UTC); 5 cambios de saldo por hora (429 si se supera).
 
@@ -18,6 +18,11 @@ En construcción. Pasos 0 a 7 completados: entorno, Docker Compose, esquema del 
 | `PUT /me/balance` | elegir mi saldo de juguete ($1 a $5.000) |
 | `POST /me/transfers` | mandarle dinero a otra persona |
 | `GET /me/movements` | mis últimos 50 movimientos |
+| `POST /merchant/charges` | (comercio) cobrarle a una persona |
+| `GET /merchant/charges` | (comercio) mis cobros |
+| `GET /me/charges` | cobros que me hicieron |
+| `POST /me/charges/{id}/pay` | pagar un cobro (con `Idempotency-Key`) |
+| `POST /me/charges/{id}/reject` | rechazar un cobro |
 
 **Concurrencia:** dos transferencias simultáneas desde la misma cuenta no pueden dejarla en negativo. Cada transferencia bloquea las dos cuentas (`SELECT ... FOR UPDATE`, siempre en el mismo orden para evitar deadlocks). Hay un test que lanza dos hilos a la vez y que **falla si se quita el bloqueo** (comprobado).
 
