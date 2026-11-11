@@ -15,7 +15,7 @@ class LedgerTransaction(Base):
     __tablename__ = "ledger_transactions"
     __table_args__ = (
         CheckConstraint(
-            "kind IN ('balance_set', 'transfer')",
+            "kind IN ('balance_set', 'transfer', 'payment')",
             name="ck_ledger_transactions_kind",
         ),
     )

@@ -142,6 +142,27 @@
 - Si la operación falla (ej. saldo insuficiente), la clave **no** queda guardada (savepoint): se puede reintentar.
 - Migración `eb426c5d4173`.
 
+### 3.6 `charges` (cobros de comercios) — decidido 2026-11-11 (paso 9)
+
+| Columna | Tipo | Reglas | Para qué |
+|---|---|---|---|
+| `id` | `UUID` | clave primaria | identificador |
+| `merchant_id` | `UUID` | `NOT NULL`, FK `users.id`, índice | comercio que cobra |
+| `payer_id` | `UUID` | `NOT NULL`, FK `users.id`, índice | persona que paga |
+| `amount` | `BIGINT` | `NOT NULL`, `CHECK (amount > 0)` | centavos |
+| `description` | `TEXT` | `NOT NULL` (1–200 caracteres, validado en la API) | concepto |
+| `status` | `TEXT` | `CHECK (status IN ('pending','paid','rejected'))`, default `pending` | estado |
+| `transaction_id` | `UUID` | FK `ledger_transactions.id`, puede ser `NULL` | el pago en el libro |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, default `now()` | cuándo se creó |
+| `resolved_at` | `TIMESTAMPTZ` | puede ser `NULL` | cuándo se pagó o rechazó |
+
+**Regla entre columnas:** `ck_charges_paid_has_transaction`: `paid` ⇔ tiene `transaction_id`.
+
+**Notas:**
+- `ledger_transactions.kind` ahora acepta `payment` (cambio de `CHECK` hecho a mano: autogenerate no lo detecta). Migración `f6de89137503`.
+- Pagar bloquea primero el cobro (`FOR UPDATE`) y después las cuentas. El estado `pending` se revisa con el cobro bloqueado.
+- Los pagos cuentan para el límite diario, igual que las transferencias.
+
 ---
 
 ## 4. Regla de oro: solo agregar (append-only)

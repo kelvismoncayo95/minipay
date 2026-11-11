@@ -54,14 +54,14 @@ def _count_balance_changes_last_hour(db: Session, account_id: uuid.UUID) -> int:
 
 
 def _sent_today(db: Session, account_id: uuid.UUID) -> int:
-    """Centavos enviados hoy (día UTC) por transferencias."""
+    """Centavos enviados hoy (día UTC) por transferencias y pagos."""
     enviado = db.scalar(
         select(func.coalesce(func.sum(LedgerEntry.amount), 0))
         .join(LedgerEntry.transaction)
         .where(
             LedgerEntry.account_id == account_id,
             LedgerEntry.amount < 0,
-            LedgerTransaction.kind == "transfer",
+            LedgerTransaction.kind.in_(["transfer", "payment"]),
             LedgerTransaction.created_at >= func.date_trunc("day", func.now()),
         )
     )
@@ -155,19 +155,33 @@ def transfer(
         raise InvalidTransferError("No existe una persona con ese usuario.")
     if destino.id == from_account_id:
         raise InvalidTransferError("No podés transferirte a vos mismo.")
+    return move_money(db, from_account_id, destino.id, amount, kind="transfer")
+
+
+def move_money(
+    db: Session, from_account_id: uuid.UUID, to_account_id: uuid.UUID, amount: int, kind: str
+) -> LedgerTransaction:
+    """Mueve dinero entre dos cuentas de usuario con todas las reglas. No hace commit.
+
+    La usan las transferencias y los pagos de cobros.
+    """
+    if amount <= 0:
+        raise InvalidTransferError("El monto tiene que ser mayor que cero.")
+    if amount > MAX_TRANSFER:
+        raise LimitExceededError(f"El máximo por operación es {MAX_TRANSFER} centavos.")
 
     # Bloqueamos las DOS cuentas, siempre en el mismo orden (por id).
-    # Si dos transferencias cruzadas (A→B y B→A) bloquearan en distinto orden,
+    # Si dos operaciones cruzadas (A→B y B→A) bloquearan en distinto orden,
     # cada una esperaría a la otra para siempre (deadlock).
     bloqueadas = db.scalars(
         select(Account)
-        .where(Account.id.in_([from_account_id, destino.id]))
+        .where(Account.id.in_([from_account_id, to_account_id]))
         .order_by(Account.id)
         .with_for_update()
     ).all()
     origen = next((a for a in bloqueadas if a.id == from_account_id), None)
     if origen is None or origen.kind != "user":
-        raise InvalidTransferError("La cuenta de origen no puede transferir.")
+        raise InvalidTransferError("La cuenta de origen no puede enviar dinero.")
 
     # Con la fila bloqueada, saldo y total del día ya no pueden cambiar hasta el commit.
     if _sent_today(db, origen.id) + amount > DAILY_TRANSFER_LIMIT:
@@ -177,10 +191,10 @@ def transfer(
     if get_balance(db, origen.id) < amount:
         raise InsufficientFundsError("Saldo insuficiente.")
 
-    tx = LedgerTransaction(kind="transfer")
+    tx = LedgerTransaction(kind=kind)
     tx.entries = [
         LedgerEntry(account_id=origen.id, amount=-amount),
-        LedgerEntry(account_id=destino.id, amount=amount),
+        LedgerEntry(account_id=to_account_id, amount=amount),
     ]
     db.add(tx)
     db.flush()
