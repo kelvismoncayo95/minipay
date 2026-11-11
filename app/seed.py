@@ -9,6 +9,10 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import Account, User
+from app.services.auth import hash_password
+
+# Contraseña PÚBLICA de la demo (a propósito). Es la misma para todos los usuarios demo.
+DEMO_PASSWORD = "demo1234"
 
 # (username, display_name, role)
 DEMO_USERS = [
@@ -35,6 +39,9 @@ def seed_demo(db: Session) -> None:
             user = User(username=username, display_name=display_name, role=role)
             db.add(user)
             db.flush()
+
+        if user.password_hash is None:
+            user.password_hash = hash_password(DEMO_PASSWORD)
 
         if role in ROLES_CON_CUENTA:
             tiene_cuenta = db.scalars(
