@@ -6,7 +6,15 @@ Billetera digital de dinero de juguete. Demo pública para demostrar que se pued
 
 ## Estado
 
-En construcción. Pasos 0 a 4 completados: entorno, Docker Compose, esquema del libro contable con migraciones, datos demo, servicio de saldo y login.
+En construcción. Pasos 0 a 5 completados: entorno, Docker Compose, esquema del libro contable con migraciones, datos demo, login y API de saldo y movimientos.
+
+| Endpoint | Qué hace |
+|---|---|
+| `POST /auth/login` | usuario + contraseña → token |
+| `GET /auth/me` | quién soy |
+| `GET /me/balance` | mi saldo (en centavos) |
+| `PUT /me/balance` | elegir mi saldo de juguete ($1 a $5.000) |
+| `GET /me/movements` | mis últimos 50 movimientos |
 
 ## Probar la demo
 

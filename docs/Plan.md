@@ -10,8 +10,8 @@
 | 2 | Esquema del libro | 4 tablas, modelos, Alembic, tests de constraints | ✅ 2026-11-11 |
 | 3 | Datos demo y saldo | usuarios demo + Banco de juguete; servicio para calcular y elegir saldo | ✅ 2026-11-11 |
 | 4 | Login | `password_hash`, contraseña demo, token de sesión | ✅ 2026-11-11 |
-| 5 | API de saldo y movimientos | endpoints para ver saldo, elegir saldo e historial | ⏳ |
-| 6 | Transferencias | Ana → Luis, con bloqueo de filas (sin saldos negativos con concurrencia) | |
+| 5 | API de saldo y movimientos | endpoints para ver saldo, elegir saldo e historial | ✅ 2026-11-11 |
+| 6 | Transferencias | Ana → Luis, con bloqueo de filas (sin saldos negativos con concurrencia) | ⏳ |
 | 7 | Idempotencia | la misma operación enviada dos veces se cobra una sola vez | |
 | 8 | Límites | máximo por operación, límite diario, 5 cambios de saldo por hora (Redis) | |
 | 9 | Comercios y cobros | la Clínica del Sur (demo) cobra a un usuario | |
