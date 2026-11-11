@@ -50,6 +50,23 @@ services:
       - ./app:/app/app
       - ./alembic:/app/alembic
 
+  worker:
+    build: .
+    container_name: minipay-worker
+    restart: unless-stopped
+    command: ["arq", "app.worker.settings.WorkerSettings"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-minipay}:${POSTGRES_PASSWORD:-minipay_dev_password}@postgres:5432/${POSTGRES_DB:-minipay}
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET en el .env}
+    volumes:
+      - ./app:/app/app
+
 volumes:
   postgres_data:
   redis_data:

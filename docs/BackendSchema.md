@@ -163,6 +163,18 @@
 - Pagar bloquea primero el cobro (`FOR UPDATE`) y después las cuentas. El estado `pending` se revisa con el cobro bloqueado.
 - Los pagos cuentan para el límite diario, igual que las transferencias.
 
+### 3.7 `reconciliation_runs` (conciliaciones) — decidido 2026-11-11 (paso 10)
+
+| Columna | Tipo | Para qué |
+|---|---|---|
+| `id` | `UUID` | identificador |
+| `total` | `BIGINT` | suma de todos los renglones del libro (tiene que ser 0) |
+| `entries_count` | `BIGINT` | cuántos renglones se sumaron |
+| `ok` | `BOOLEAN` | `total = 0` |
+| `ran_at` | `TIMESTAMPTZ` | cuándo se corrió |
+
+La corre el worker cada 15 minutos (y al arrancar). Si da distinto de 0, se escribe un error en el log. Migración `9adac7f0e3dc`.
+
 ---
 
 ## 4. Regla de oro: solo agregar (append-only)
