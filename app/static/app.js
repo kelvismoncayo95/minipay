@@ -131,11 +131,26 @@ async function conMinimo(promesa, ms = 900) {
 const ref = (prefijo, id) => ({ titulo: "N.º de referencia", valor: `${prefijo}-${corto(id)}` });
 const refIntento = (clave) => ({ titulo: "Código del intento", valor: `INT-${corto(clave)}` });
 
-/** Campo de monto en pesos con validación. */
+/** "390,9855" → "390,98"; "4.8" → "4,8"; "12a3" → "123". Máx. 6 cifras enteras y 2 decimales. */
+function limpiarMonto(texto) {
+  const t = texto.replace(/[^\d.,]/g, "").replace(/\./g, ",");
+  const coma = t.indexOf(",");
+  if (coma === -1) return t.slice(0, 6);
+  const enteros = (t.slice(0, coma) || "0").slice(0, 6);
+  const decimales = t.slice(coma + 1).replace(/,/g, "").slice(0, 2);
+  return `${enteros},${decimales}`;
+}
+
+/** Campo de monto con validación. */
 function campoMonto(etiqueta, ayuda) {
   // type="text" + inputmode="decimal": teclado numérico CON coma en el celular.
   // (type="number" rechaza "4,80" en iPhone en español.)
-  const input = h("input", { type: "text", inputmode: "decimal", autocomplete: "off", placeholder: "0,00" });
+  const input = h("input", { type: "text", inputmode: "decimal", autocomplete: "off", placeholder: "0,00", maxlength: "9" });
+  // Mientras escribe: solo números y UNA coma, máximo 2 decimales (no se redondea a escondidas).
+  input.addEventListener("input", () => {
+    const limpio = limpiarMonto(input.value);
+    if (limpio !== input.value) input.value = limpio;
+  });
   const error = h("p", { class: "error-campo", hidden: true });
   const el = h("div", {}, h("label", {}, etiqueta, input), ayuda ? h("p", { class: "ayuda" }, ayuda) : null, error);
   return {
