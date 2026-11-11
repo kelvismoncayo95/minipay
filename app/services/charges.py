@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Charge, LedgerTransaction, User
 from app.services.idempotency import fingerprint, run_idempotent
-from app.services.ledger import MAX_TRANSFER, get_account_for_user, move_money, pesos
+from app.services.ledger import MAX_TRANSFER, get_account_for_user, move_money, dinero
 
 
 class ChargeError(ValueError):
@@ -29,7 +29,7 @@ def create_charge(
     if merchant.role != "merchant":
         raise ChargeError("Solo los comercios pueden cobrar.")
     if not 0 < amount <= MAX_TRANSFER:
-        raise ChargeError(f"El monto tiene que estar entre $0,01 y {pesos(MAX_TRANSFER)}.")
+        raise ChargeError(f"El monto tiene que estar entre US$0,01 y {dinero(MAX_TRANSFER)}.")
     payer = db.scalars(
         select(User).where(User.username == payer_username, User.role == "user")
     ).first()

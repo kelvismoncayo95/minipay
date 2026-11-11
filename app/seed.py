@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models import Account, User
 from app.services.auth import hash_password
+from app.services.daily_reset import ensure_daily_reset
 
 # Contraseña PÚBLICA de la demo (a propósito). Es la misma para todos los usuarios demo.
 DEMO_PASSWORD = "demo1234"
@@ -57,6 +58,10 @@ def main() -> None:
     with SessionLocal() as db:
         seed_demo(db)
         db.commit()
+        # Primer arranque (o servidor que estuvo apagado): deja el día de demo listo.
+        if ensure_daily_reset(db):
+            db.commit()
+            print("Reinicio diario aplicado.")
     print("Datos demo listos.")
 
 

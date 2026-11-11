@@ -1,4 +1,4 @@
-"""Tests de límites de la demo (paso 8)."""
+"""Tests de límites de la demo (fondo fijo: US$500 por operación, US$1.000 por día)."""
 
 import pytest
 from sqlalchemy.orm import Session
@@ -10,6 +10,7 @@ from app.services.ledger import (
     MAX_TRANSFER,
     LimitExceededError,
     RateLimitError,
+    dinero,
     get_balance,
     set_balance,
     transfer,
@@ -34,37 +35,36 @@ def cuentas(db: Session) -> dict[str, Account]:
 
 
 def test_limites_de_la_demo() -> None:
-    assert MAX_TRANSFER == 500_000  # $5.000
-    assert DAILY_TRANSFER_LIMIT == 1_000_000  # $10.000
+    assert MAX_TRANSFER == 50_000  # US$500
+    assert DAILY_TRANSFER_LIMIT == 100_000  # US$1.000
     assert BALANCE_CHANGES_PER_HOUR == 5
 
 
 def test_maximo_por_operacion(db: Session, cuentas: dict[str, Account]) -> None:
-    set_balance(db, cuentas["ana"].id, 500_000)
+    set_balance(db, cuentas["ana"].id, 100_000)
     with pytest.raises(LimitExceededError):
-        transfer(db, cuentas["ana"].id, "luis", 500_001)
-    transfer(db, cuentas["ana"].id, "luis", 500_000)  # justo el máximo: sí
-    assert get_balance(db, cuentas["ana"].id) == 0
+        transfer(db, cuentas["ana"].id, "luis", 50_001)
+    transfer(db, cuentas["ana"].id, "luis", 50_000)  # justo el máximo: sí
+    assert get_balance(db, cuentas["ana"].id) == 50_000
 
 
 def test_limite_diario(db: Session, cuentas: dict[str, Account]) -> None:
     ana = cuentas["ana"].id
-    for _ in range(2):  # $5.000 + $5.000 = $10.000 en el día
-        set_balance(db, ana, 500_000)
-        transfer(db, ana, "luis", 500_000)
-    set_balance(db, ana, 500_000)
+    set_balance(db, ana, 200_000)
+    transfer(db, ana, "luis", 50_000)
+    transfer(db, ana, "luis", 50_000)  # US$1.000 en el día: justo el límite
     with pytest.raises(LimitExceededError):
-        transfer(db, ana, "luis", 100)  # un peso más ya pasa el límite
-    assert get_balance(db, ana) == 500_000
+        transfer(db, ana, "luis", 100)  # un centavo más ya pasa
+    assert get_balance(db, ana) == 100_000
 
 
 def test_recibir_no_cuenta_para_el_limite(db: Session, cuentas: dict[str, Account]) -> None:
     ana, luis = cuentas["ana"].id, cuentas["luis"].id
-    for _ in range(2):
-        set_balance(db, ana, 500_000)
-        transfer(db, ana, "luis", 500_000)
-    # Luis recibió $10.000 pero no mandó nada: puede mandar.
-    transfer(db, luis, "ana", 100_000)
+    set_balance(db, ana, 100_000)
+    transfer(db, ana, "luis", 50_000)
+    transfer(db, ana, "luis", 50_000)
+    # Luis recibió US$1.000 pero no mandó nada: puede mandar.
+    transfer(db, luis, "ana", 50_000)
 
 
 def test_cinco_cambios_de_saldo_por_hora(db: Session, cuentas: dict[str, Account]) -> None:
@@ -85,10 +85,8 @@ def test_elegir_el_mismo_saldo_no_gasta_un_cambio(
     assert set_balance(db, ana, 500) is None  # no cambia nada → no cuenta ni falla
 
 
-def test_mensajes_en_pesos() -> None:
-    from app.services.ledger import pesos
-
-    assert pesos(500_000) == "$5.000"
-    assert pesos(4_550) == "$45,50"
-    assert pesos(100) == "$1"
-    assert pesos(1_000_000) == "$10.000"
+def test_mensajes_en_dolares() -> None:
+    assert dinero(50_000) == "US$500"
+    assert dinero(4_550) == "US$45,50"
+    assert dinero(100) == "US$1"
+    assert dinero(100_000) == "US$1.000"

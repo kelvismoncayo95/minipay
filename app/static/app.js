@@ -5,7 +5,7 @@
 const app = document.getElementById("app");
 
 // ---------- Formatos ----------
-const pesosFmt = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" });
+const pesosFmt = new Intl.NumberFormat("es-UY", { style: "currency", currency: "USD" }); // "US$ 4,80"
 const fmt = (cents) => pesosFmt.format(cents / 100);
 /** Texto escrito por una persona → centavos. Acepta "4,80", "4.80", "1.000,50", "1000".
  *  Devuelve NaN si no es un monto válido (o tiene más de 2 decimales). */
@@ -26,9 +26,14 @@ const fecha = (iso) =>
   new Date(iso).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short", hourCycle: "h23" });
 const corto = (id) => String(id).slice(0, 8).toUpperCase();
 
-const MAX_OPERACION = 500_000; // $5.000 (igual que la API)
-const TIPOS = { balance_set: "Cambio de saldo", transfer: "Transferencia", payment: "Pago de cobro" };
-const ESTADOS = { pending: "Pendiente", paid: "Pagado", rejected: "Rechazado" };
+const MAX_OPERACION = 50_000; // US$500 (igual que la API)
+const TIPOS = {
+  balance_set: "Cambio de saldo",
+  transfer: "Transferencia",
+  payment: "Pago de cobro",
+  daily_reset: "Reinicio del día (tu saldo vuelve al inicial)", // el monto es la diferencia
+};
+const ESTADOS = { pending: "Pendiente", paid: "Pagado", rejected: "Rechazado", expired: "Vencido" };
 
 const USUARIOS = [
   { u: "ana", nombre: "Ana", icono: "👩", desc: "Persona: elige saldo, transfiere y paga cobros" },
@@ -193,7 +198,7 @@ function pantallaLogin(error) {
   document.getElementById("sesion").hidden = true;
   pantalla({
     titulo: "¿Quién querés ser?",
-    explica: "Esto es una demo con dinero de mentira. Elegí un personaje para probarla. Entramos con la contraseña de la demo (demo1234).",
+    explica: "Esto es una demo con dinero de mentira: hay US$10.000 repartidos entre Ana, Luis, Marta y Pedro, y se los pasan entre ellos. Elegí un personaje para probarla (contraseña de la demo: demo1234).",
     cuerpo: [
       error ? h("p", { class: "error-campo" }, error) : null,
       h("div", { class: "opciones" },
@@ -245,7 +250,6 @@ async function inicio() {
 
   const opciones = esPersona
     ? [
-        { icono: "💰", titulo: "Elegir saldo", desc: "Cargá dinero de juguete a tu cuenta", onclick: () => saldoPaso1() },
         { icono: "➡️", titulo: "Transferir", desc: "Mandarle dinero a otra persona", onclick: () => transferirPaso1() },
         { icono: "🧾", titulo: "Cobros", desc: "Pagar o rechazar lo que te cobraron", badge: pendientes || null, onclick: () => cobrosLista() },
         { icono: "📜", titulo: "Movimientos", desc: "Todo lo que entró y salió de tu cuenta", onclick: () => movimientos() },
@@ -258,9 +262,10 @@ async function inicio() {
 
   pantalla({
     titulo: `Hola, ${yo.display_name}`,
-    explica: esPersona
-      ? "¿Qué querés hacer? Elegí una opción."
-      : "Sos un comercio: le cobrás a las personas y ellas te pagan desde su cuenta.",
+    explica: (esPersona
+      ? "¿Qué querés hacer? Elegí una opción. "
+      : "Sos un comercio: le cobrás a las personas y ellas te pagan desde su cuenta. ") +
+      "Todos los días a las 3:00 (hora de Uruguay) la demo vuelve a empezar: cada persona arranca con US$2.500.",
     cuerpo: [
       h("div", { class: "saldo" }, h("p", {}, "Tu saldo"), h("p", { class: "monto-grande", id: "saldo-num" }, fmt(saldo))),
       h("div", { class: "opciones" }, opciones.map(opcion)),
@@ -285,58 +290,6 @@ document.addEventListener("visibilitychange", refrescoSilencioso);
 
 const volverInicio = () => boton("Volver al inicio", () => inicio());
 
-// ---------- Elegir saldo: 2 pasos + resultado ----------
-function saldoPaso1() {
-  const monto = campoMonto("Otro monto ($)", "Entre $1 y $5.000. Podés cambiarlo hasta 5 veces por hora.");
-  const seguir = (cents) => {
-    if (!(cents >= 100 && cents <= 500_000)) return monto.error("Elegí un monto entre $1 y $5.000.");
-    saldoPaso2(cents);
-  };
-  pantalla({
-    paso: 1, total: 2,
-    titulo: "¿Cuánto saldo querés tener?",
-    explica: "Es dinero de juguete. El monto que elijas reemplaza al que tenías.",
-    cuerpo: [
-      h("div", { class: "atajos" }, [10_000, 100_000, 500_000].map((c) => boton(fmt(c), () => seguir(c)))),
-      monto.el,
-    ],
-    acciones: [boton("Cancelar", () => inicio()), boton("Seguir", () => seguir(monto.leer()), "primario")],
-  });
-}
-
-async function saldoPaso2(nuevo) {
-  const actual = await saldoActual();
-  const confirmar = boton("Confirmar", (ev) => ocupado(ev.currentTarget, () => saldoEnviar(nuevo)), "primario");
-  pantalla({
-    paso: 2, total: 2,
-    titulo: "Revisá antes de confirmar",
-    explica: "Todavía no cambió nada. Si está bien, tocá Confirmar.",
-    cuerpo: [resumen([["Saldo actual", fmt(actual)], ["Saldo nuevo", fmt(nuevo)]])],
-    acciones: [boton("Volver", () => saldoPaso1()), confirmar],
-  });
-}
-
-async function saldoEnviar(nuevo) {
-  procesando("Cambiando tu saldo…", ["Revisando el monto", "Revisando el límite de cambios por hora"]);
-  try {
-    const r = await conMinimo(api("PUT", "/me/balance", { balance_cents: nuevo }));
-    resultado({
-      ok: true,
-      titulo: "¡Listo! Tu saldo cambió",
-      filas: [["Saldo nuevo", fmt(r.balance_cents)], ["Fecha", fecha(new Date().toISOString())]],
-      acciones: [volverInicio()],
-    });
-  } catch (e) {
-    resultado({
-      ok: false,
-      titulo: "No se pudo cambiar el saldo",
-      explica: "Tu saldo quedó igual.",
-      motivo: e.message,
-      acciones: [boton("Intentar de nuevo", () => saldoPaso1()), volverInicio()],
-    });
-  }
-}
-
 // ---------- Transferir: 3 pasos + resultado ----------
 function transferirPaso1() {
   pantalla({
@@ -354,12 +307,12 @@ function transferirPaso1() {
 
 async function transferirPaso2(t) {
   const saldo = await saldoActual();
-  const monto = campoMonto(`Monto para ${nombreDe(t.para)} ($)`, "Máximo $5.000 por transferencia y $10.000 por día.");
+  const monto = campoMonto(`Monto para ${nombreDe(t.para)} (US$)`, "Máximo US$500 por transferencia y US$1.000 por día.");
   if (t.monto) monto.input.value = (t.monto / 100).toFixed(2).replace(".", ",");
   const seguir = () => {
     const c = monto.leer();
     if (!(c > 0)) return monto.error("Escribí un monto válido, por ejemplo 4,80.");
-    if (c > MAX_OPERACION) return monto.error("El máximo por transferencia es $5.000.");
+    if (c > MAX_OPERACION) return monto.error("El máximo por transferencia es US$500.");
     if (c > saldo) return monto.error(`No te alcanza: tenés ${fmt(saldo)}.`);
     transferirPaso3({ ...t, monto: c, saldo, key: null });
   };
@@ -518,7 +471,7 @@ function cobrarPaso1() {
 }
 
 function cobrarPaso2(c) {
-  const monto = campoMonto("Monto ($)", "Máximo $5.000.");
+  const monto = campoMonto("Monto (US$)", "Máximo US$500.");
   const concepto = h("input", { maxlength: "200", placeholder: "Ej.: Consulta general" });
   const errConcepto = h("p", { class: "error-campo", hidden: true });
   if (c.monto) monto.input.value = (c.monto / 100).toFixed(2).replace(".", ",");
@@ -527,7 +480,7 @@ function cobrarPaso2(c) {
     const cents = monto.leer();
     monto.error("");
     errConcepto.hidden = true;
-    if (!(cents > 0 && cents <= MAX_OPERACION)) return monto.error("Elegí un monto entre $0,01 y $5.000.");
+    if (!(cents > 0 && cents <= MAX_OPERACION)) return monto.error("Elegí un monto entre US$0,01 y US$500.");
     if (!concepto.value.trim()) {
       errConcepto.textContent = "Escribí el concepto (para qué es el cobro).";
       errConcepto.hidden = false;
@@ -598,7 +551,7 @@ async function movimientos() {
   const movs = await api("GET", "/me/movements");
   pantalla({
     titulo: "Movimientos",
-    explica: "En verde lo que entró a tu cuenta, en rojo lo que salió.",
+    explica: "Los de hoy (desde las 3:00, hora de Uruguay). En verde lo que entró a tu cuenta, en rojo lo que salió.",
     cuerpo: [movs.length
       ? h("ul", { class: "lista" }, movs.map((m) =>
           h("li", {}, h("span", {}, TIPOS[m.kind] || m.kind, h("br"), h("small", {}, fecha(m.created_at))),
@@ -629,6 +582,7 @@ async function pantallaAdmin(run) {
           resumen([
             ["Resultado", run.ok ? "Cuadra" : "¡Descuadre!"],
             ["Total", fmt(run.total_cents)],
+            ["Dinero de las personas", "US$10.000 (fijo)"],
             ["Renglones revisados", String(run.entries_count)],
             ["Última revisión", fecha(run.ran_at)],
           ]),

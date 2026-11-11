@@ -12,14 +12,16 @@ En construcción. Pasos 0 a 7 completados: entorno, Docker Compose, esquema del 
 
 **Conciliación automática:** un worker (Arq + Redis) suma todo el libro cada 15 minutos; tiene que dar exactamente 0. El admin la consulta en `GET /admin/reconciliation` o la corre en `POST /admin/reconciliation`.
 
-**Límites de la demo:** saldo de $1 a $5.000; máximo $5.000 por transferencia; $10.000 enviados por día (UTC); 5 cambios de saldo por hora (429 si se supera).
+**Cómo funciona la demo (fondo fijo):** hay **US$10.000** de juguete repartidos entre Ana, Luis, Marta y Pedro (US$2.500 cada uno). Se los pasan entre ellos y le pagan cobros a la Clínica. Todos los días a las **3:00 (hora de Uruguay)** todo vuelve a empezar, sin borrar nada: se agrega un movimiento de reinicio y el historial completo queda en la base.
+
+**Límites:** máximo US$500 por operación y US$1.000 enviados por día.
 
 | Endpoint | Qué hace |
 |---|---|
 | `POST /auth/login` | usuario + contraseña → token |
 | `GET /auth/me` | quién soy |
 | `GET /me/balance` | mi saldo (en centavos) |
-| `PUT /me/balance` | elegir mi saldo de juguete ($1 a $5.000) |
+| `GET /demo/info` | reglas de la demo (montos, límites, próximo reinicio) |
 | `POST /me/transfers` | mandarle dinero a otra persona |
 | `GET /me/movements` | mis últimos 50 movimientos |
 | `POST /merchant/charges` | (comercio) cobrarle a una persona |

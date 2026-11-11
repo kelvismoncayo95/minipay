@@ -28,7 +28,6 @@ def auth(client: TestClient, username: str) -> dict[str, str]:
 @pytest.fixture
 def h(client: TestClient) -> dict[str, dict[str, str]]:
     hs = {u: auth(client, u) for u in ("ana", "luis", "clinica-del-sur")}
-    client.put("/me/balance", json={"balance_cents": 100_000}, headers=hs["ana"])
     return hs
 
 
@@ -60,7 +59,7 @@ def test_flujo_completo(client: TestClient, h: dict) -> None:
     r = pagar(client, h["ana"], charge["id"])
     assert r.status_code == 200
     assert r.json()["status"] == "paid"
-    assert client.get("/me/balance", headers=h["ana"]).json()["balance_cents"] == 70_000
+    assert client.get("/me/balance", headers=h["ana"]).json()["balance_cents"] == 220_000
     assert (
         client.get("/me/balance", headers=h["clinica-del-sur"]).json()["balance_cents"] == 30_000
     )
@@ -74,7 +73,7 @@ def test_reintento_del_pago_con_la_misma_clave(client: TestClient, h: dict) -> N
     r2 = pagar(client, h["ana"], charge["id"], key="pago-consulta-1")
     assert r1.status_code == r2.status_code == 200
     assert r2.headers["Idempotent-Replayed"] == "true"
-    assert client.get("/me/balance", headers=h["ana"]).json()["balance_cents"] == 70_000
+    assert client.get("/me/balance", headers=h["ana"]).json()["balance_cents"] == 220_000
 
 
 def test_pagar_dos_veces_con_otra_clave_da_409(client: TestClient, h: dict) -> None:
@@ -105,6 +104,23 @@ def test_una_persona_no_puede_cobrar(client: TestClient, h: dict) -> None:
     assert r.status_code == 403
 
 
-def test_pagar_sin_saldo_da_422(client: TestClient, h: dict) -> None:
-    charge = cobrar(client, h, monto=200_000)
-    assert pagar(client, h["ana"], charge["id"]).status_code == 422
+def test_cobro_mayor_al_maximo_rechazado(client: TestClient, h: dict) -> None:
+    r = client.post(
+        "/merchant/charges",
+        json={"payer_username": "ana", "amount_cents": 50_001, "description": "Cirugía"},
+        headers=h["clinica-del-sur"],
+    )
+    assert r.status_code == 422
+
+
+def test_pagar_pasado_el_limite_diario_da_422(client: TestClient, h: dict) -> None:
+    for _ in range(2):  # Ana manda US$1.000 en el día
+        client.post(
+            "/me/transfers",
+            json={"to_username": "luis", "amount_cents": 50_000},
+            headers={**h["ana"], "Idempotency-Key": str(uuid.uuid4())},
+        )
+    charge = cobrar(client, h, monto=1_000)
+    r = pagar(client, h["ana"], charge["id"])
+    assert r.status_code == 422
+    assert "límite diario" in r.json()["detail"]

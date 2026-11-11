@@ -175,6 +175,23 @@
 
 La corre el worker cada 15 minutos (y al arrancar). Si da distinto de 0, se escribe un error en el log. Migración `9adac7f0e3dc`.
 
+### 3.8 `daily_resets` (reinicios diarios) — decidido 2026-11-11 (fondo fijo)
+
+| Columna | Tipo | Para qué |
+|---|---|---|
+| `day` | `DATE`, clave primaria | el "día de demo" (empieza a las 3:00 de Uruguay). Imposible reiniciar dos veces |
+| `transaction_id` | `UUID`, FK `ledger_transactions.id` | el movimiento `daily_reset` que hizo el reinicio |
+| `ran_at` | `TIMESTAMPTZ` | cuándo se hizo |
+
+**Cómo funciona el fondo fijo:**
+- Hay **US$10.000** que circulan: Ana, Luis, Marta y Pedro arrancan cada día con US$2.500; la Clínica con US$0.
+- Todos los días a las **3:00 (America/Montevideo)** se agrega UN movimiento `daily_reset` que lleva cada cuenta a su saldo inicial (contrapartida: el Banco de juguete). **No se borra nada.**
+- Los cobros pendientes pasan a `expired`.
+- El límite diario y los movimientos que muestra el frontend se cuentan desde el último reinicio.
+- El reinicio lo dispara el worker (cada 15 min revisa) o el primer pedido autenticado del día (por si el servidor estuvo dormido). La fecha como clave primaria + `ON CONFLICT DO NOTHING` garantizan uno solo.
+- `ledger_transactions.kind` acepta `daily_reset`; `charges.status` acepta `expired`. Migración `c8bde2ba7083`.
+- Límites nuevos: **US$500 por operación**, **US$1.000 enviados por día**. Ya no existe "elegir saldo" en la API pública.
+
 ---
 
 ## 4. Regla de oro: solo agregar (append-only)

@@ -27,9 +27,7 @@ def auth(client: TestClient, username: str) -> dict[str, str]:
 
 @pytest.fixture
 def ana(client: TestClient) -> dict[str, str]:
-    h = auth(client, "ana")
-    client.put("/me/balance", json={"balance_cents": 100_000}, headers=h)
-    return h
+    return auth(client, "ana")  # arranca el día con US$2.500 (250_000)
 
 
 def mandar(client: TestClient, h: dict[str, str], to: str, monto: int, key: str | None = None):
@@ -54,7 +52,7 @@ def test_reintento_con_la_misma_clave_cobra_una_vez(
     assert r1.json()["transaction_id"] == r2.json()["transaction_id"]
     assert "Idempotent-Replayed" not in r1.headers
     assert r2.headers["Idempotent-Replayed"] == "true"
-    assert client.get("/me/balance", headers=ana).json()["balance_cents"] == 75_000
+    assert client.get("/me/balance", headers=ana).json()["balance_cents"] == 225_000
 
 
 def test_misma_clave_otro_monto_rechazado(client: TestClient, ana: dict[str, str]) -> None:
@@ -68,18 +66,26 @@ def test_transferir(client: TestClient, ana: dict[str, str]) -> None:
     r = mandar(client, ana, "luis", 25_000)
     assert r.status_code == 201
     assert r.json()["amount_cents"] == 25_000
-    assert r.json()["balance_cents"] == 75_000
+    assert r.json()["balance_cents"] == 225_000
 
     luis = auth(client, "luis")
-    assert client.get("/me/balance", headers=luis).json()["balance_cents"] == 25_000
+    assert client.get("/me/balance", headers=luis).json()["balance_cents"] == 275_000
     mov = client.get("/me/movements", headers=luis).json()[0]
     assert (mov["kind"], mov["amount_cents"]) == ("transfer", 25_000)
 
 
-def test_saldo_insuficiente(client: TestClient, ana: dict[str, str]) -> None:
-    r = mandar(client, ana, "luis", 200_000)
+def test_maximo_por_operacion(client: TestClient, ana: dict[str, str]) -> None:
+    r = mandar(client, ana, "luis", 50_001)
     assert r.status_code == 422
-    assert "Saldo insuficiente" in r.json()["detail"]
+    assert "US$500" in r.json()["detail"]
+
+
+def test_limite_diario(client: TestClient, ana: dict[str, str]) -> None:
+    assert mandar(client, ana, "luis", 50_000).status_code == 201
+    assert mandar(client, ana, "luis", 50_000).status_code == 201
+    r = mandar(client, ana, "luis", 100)
+    assert r.status_code == 422
+    assert "límite diario" in r.json()["detail"]
 
 
 def test_destinatario_inexistente(client: TestClient, ana: dict[str, str]) -> None:
