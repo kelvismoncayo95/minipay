@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI
 
-from app.api import accounts, auth, charges
+from app.api import accounts, admin, auth, charges
 
 app = FastAPI(
     title="minipay",
@@ -14,6 +14,7 @@ app.include_router(auth.router)
 app.include_router(accounts.router)
 app.include_router(charges.merchant_router)
 app.include_router(charges.payer_router)
+app.include_router(admin.router)
 
 
 @app.get("/health")
