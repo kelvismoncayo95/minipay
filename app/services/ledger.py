@@ -10,10 +10,17 @@ from datetime import timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.demo import DAILY_TRANSFER_LIMIT, MAX_TRANSFER
+from app.core.demo import (
+    DAILY_PAYMENT_LIMIT,
+    DAILY_TRANSFER_LIMIT,
+    LIMITS_BY_KIND,
+    MAX_PAYMENT,
+    MAX_TRANSFER,
+)
 from app.models import Account, LedgerEntry, LedgerTransaction, User
 
-__all__ = ["DAILY_TRANSFER_LIMIT", "MAX_TRANSFER"]  # se reexportan (ver app/core/demo.py)
+# Se reexportan (ver app/core/demo.py).
+__all__ = ["DAILY_PAYMENT_LIMIT", "DAILY_TRANSFER_LIMIT", "MAX_PAYMENT", "MAX_TRANSFER"]
 
 # set_balance ya no lo usa la demo pública (ahora hay un fondo fijo). Queda como
 # herramienta interna para tests y para cargar datos.
@@ -72,15 +79,15 @@ def _count_balance_changes_last_hour(db: Session, account_id: uuid.UUID) -> int:
     )
 
 
-def _sent_today(db: Session, account_id: uuid.UUID) -> int:
-    """Centavos enviados en el día de demo (desde el último reinicio) por transferencias y pagos."""
+def _sent_today(db: Session, account_id: uuid.UUID, kind: str) -> int:
+    """Centavos que salieron en el día de demo (desde el último reinicio) con ese tipo de movimiento."""
     enviado = db.scalar(
         select(func.coalesce(func.sum(LedgerEntry.amount), 0))
         .join(LedgerEntry.transaction)
         .where(
             LedgerEntry.account_id == account_id,
             LedgerEntry.amount < 0,
-            LedgerTransaction.kind.in_(["transfer", "payment"]),
+            LedgerTransaction.kind == kind,
             LedgerTransaction.seq > last_reset_seq(db),
         )
     )
@@ -186,10 +193,12 @@ def move_money(
 
     La usan las transferencias y los pagos de cobros.
     """
+    maximo, maximo_dia = LIMITS_BY_KIND[kind]
+    que = "transferido" if kind == "transfer" else "pagado"
     if amount <= 0:
         raise InvalidTransferError("El monto tiene que ser mayor que cero.")
-    if amount > MAX_TRANSFER:
-        raise LimitExceededError(f"El máximo por operación es {dinero(MAX_TRANSFER)}.")
+    if amount > maximo:
+        raise LimitExceededError(f"El máximo por operación es {dinero(maximo)}.")
 
     # Bloqueamos las DOS cuentas, siempre en el mismo orden (por id).
     # Si dos operaciones cruzadas (A→B y B→A) bloquearan en distinto orden,
@@ -205,10 +214,9 @@ def move_money(
         raise InvalidTransferError("La cuenta de origen no puede enviar dinero.")
 
     # Con la fila bloqueada, saldo y total del día ya no pueden cambiar hasta el commit.
-    if _sent_today(db, origen.id) + amount > DAILY_TRANSFER_LIMIT:
-        raise LimitExceededError(
-            f"Superás el límite diario de {dinero(DAILY_TRANSFER_LIMIT)} enviados."
-        )
+    # Cada tipo tiene su propio límite diario: transferir no le quita margen a pagar.
+    if _sent_today(db, origen.id, kind) + amount > maximo_dia:
+        raise LimitExceededError(f"Superás el límite diario de {dinero(maximo_dia)} {que}s.")
     if get_balance(db, origen.id) < amount:
         raise InsufficientFundsError("Saldo insuficiente.")
 

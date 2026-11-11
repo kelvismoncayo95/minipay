@@ -3,19 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#14112b">
   <title>minipay — billetera de juguete</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div class="aviso" role="note">⚠️ Dinero de mentira. Demo pública. No uses datos reales.</div>
-
-  <header class="top">
-    <button id="logo" class="logo" type="button">minipay</button>
-    <div id="sesion" hidden>
-      <span id="quien"></span>
-      <button id="salir" class="link" type="button">Salir</button>
-    </div>
-  </header>
+  <div class="barra">
+    <div class="aviso" role="note">Dinero de mentira · Demo pública · No uses datos reales</div>
+    <header class="top">
+      <button id="logo" class="logo" type="button" aria-label="minipay, ir al inicio">
+        <span class="logo-marca" aria-hidden="true"></span><span>mini<b>pay</b></span>
+      </button>
+      <div id="sesion" hidden>
+        <span id="quien"></span>
+        <button id="salir" class="link" type="button">Salir</button>
+      </div>
+    </header>
+  </div>
 
   <!-- Acá se dibuja UNA pantalla a la vez (ver app.js) -->
   <main id="app" aria-live="polite"></main>

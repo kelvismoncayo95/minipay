@@ -90,3 +90,68 @@ def test_mensajes_en_dolares() -> None:
     assert dinero(4_550) == "US$45,50"
     assert dinero(100) == "US$1"
     assert dinero(100_000) == "US$1.000"
+
+
+# ---------- Límites separados: pagos a comercios (decidido 2026-11-11) ----------
+
+
+def test_limites_de_pagos() -> None:
+    from app.core.demo import DAILY_PAYMENT_LIMIT, MAX_PAYMENT
+
+    assert MAX_PAYMENT == 100_000  # US$1.000 por cobro
+    assert DAILY_PAYMENT_LIMIT == 200_000  # US$2.000 pagados por día
+
+
+def test_transferir_no_quita_margen_para_pagar(db: Session, cuentas: dict[str, Account]) -> None:
+    from app.services.ledger import move_money
+
+    db.add(Account(kind="user", user_id=_comercio(db).id))
+    db.flush()
+    ana = cuentas["ana"].id
+    set_balance(db, ana, 300_000)
+    transfer(db, ana, "luis", 50_000)
+    transfer(db, ana, "luis", 50_000)  # límite de transferencias del día: lleno
+    clinica = _cuenta_comercio(db)
+    move_money(db, ana, clinica, 100_000, kind="payment")  # pagar sigue permitido
+    assert get_balance(db, ana) == 100_000
+
+
+def test_limite_diario_de_pagos(db: Session, cuentas: dict[str, Account]) -> None:
+    from app.services.ledger import move_money
+
+    db.add(Account(kind="user", user_id=_comercio(db).id))
+    db.flush()
+    ana, clinica = cuentas["ana"].id, _cuenta_comercio(db)
+    set_balance(db, ana, 300_000)
+    move_money(db, ana, clinica, 100_000, kind="payment")
+    move_money(db, ana, clinica, 100_000, kind="payment")  # US$2.000: justo el límite
+    with pytest.raises(LimitExceededError):
+        move_money(db, ana, clinica, 100, kind="payment")
+
+
+def test_maximo_por_pago(db: Session, cuentas: dict[str, Account]) -> None:
+    from app.services.ledger import move_money
+
+    db.add(Account(kind="user", user_id=_comercio(db).id))
+    db.flush()
+    set_balance(db, cuentas["ana"].id, 300_000)
+    with pytest.raises(LimitExceededError):
+        move_money(db, cuentas["ana"].id, _cuenta_comercio(db), 100_001, kind="payment")
+
+
+def _comercio(db: Session) -> User:
+    from sqlalchemy import select
+
+    existente = db.scalars(select(User).where(User.username == "clinica-del-sur")).first()
+    if existente:
+        return existente
+    user = User(username="clinica-del-sur", display_name="Clínica", role="merchant")
+    db.add(user)
+    db.flush()
+    return user
+
+
+def _cuenta_comercio(db: Session):
+    from sqlalchemy import select
+
+    return db.scalars(select(Account.id).where(Account.user_id == _comercio(db).id)).one()

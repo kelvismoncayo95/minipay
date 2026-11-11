@@ -14,7 +14,7 @@ En construcción. Pasos 0 a 7 completados: entorno, Docker Compose, esquema del 
 
 **Cómo funciona la demo (fondo fijo):** hay **US$10.000** de juguete repartidos entre Ana, Luis, Marta y Pedro (US$2.500 cada uno). Se los pasan entre ellos y le pagan cobros a la Clínica. Todos los días a las **3:00 (hora de Uruguay)** todo vuelve a empezar, sin borrar nada: se agrega un movimiento de reinicio y el historial completo queda en la base.
 
-**Límites:** máximo US$500 por operación y US$1.000 enviados por día.
+**Límites (separados):** transferencias entre personas: US$500 por operación y US$1.000 por día. Pagos de cobros a comercios: US$1.000 por cobro y US$2.000 por día. Transferir no le quita margen a pagar.
 
 | Endpoint | Qué hace |
 |---|---|

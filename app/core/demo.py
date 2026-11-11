@@ -19,5 +19,15 @@ INITIAL_BALANCES = {
 }
 TOTAL_POOL = sum(INITIAL_BALANCES.values())
 
-MAX_TRANSFER = 50_000  # US$500 por operación
-DAILY_TRANSFER_LIMIT = 100_000  # US$1.000 enviados por día de demo
+# Límites SEPARADOS (decidido 2026-11-11): transferir a un amigo y pagarle a un comercio
+# son cosas distintas. Transferir tiene límites más bajos (es el caso típico de fraude).
+MAX_TRANSFER = 50_000  # US$500 por transferencia
+DAILY_TRANSFER_LIMIT = 100_000  # US$1.000 transferidos por día de demo
+MAX_PAYMENT = 100_000  # US$1.000 por cobro
+DAILY_PAYMENT_LIMIT = 200_000  # US$2.000 pagados a comercios por día de demo
+
+# Qué límites usa cada tipo de movimiento: (máximo por operación, máximo por día).
+LIMITS_BY_KIND = {
+    "transfer": (MAX_TRANSFER, DAILY_TRANSFER_LIMIT),
+    "payment": (MAX_PAYMENT, DAILY_PAYMENT_LIMIT),
+}

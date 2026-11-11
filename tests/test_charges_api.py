@@ -107,20 +107,35 @@ def test_una_persona_no_puede_cobrar(client: TestClient, h: dict) -> None:
 def test_cobro_mayor_al_maximo_rechazado(client: TestClient, h: dict) -> None:
     r = client.post(
         "/merchant/charges",
-        json={"payer_username": "ana", "amount_cents": 50_001, "description": "Cirugía"},
+        json={"payer_username": "ana", "amount_cents": 100_001, "description": "Cirugía"},
         headers=h["clinica-del-sur"],
     )
     assert r.status_code == 422
 
 
-def test_pagar_pasado_el_limite_diario_da_422(client: TestClient, h: dict) -> None:
-    for _ in range(2):  # Ana manda US$1.000 en el día
+def test_cobro_de_1000_permitido(client: TestClient, h: dict) -> None:
+    charge = cobrar(client, h, monto=100_000)  # US$1.000: el máximo por cobro
+    assert pagar(client, h["ana"], charge["id"]).status_code == 200
+
+
+def test_transferir_no_impide_pagar_un_cobro(client: TestClient, h: dict) -> None:
+    # Límites separados: Ana llena su límite de transferencias...
+    for _ in range(2):
         client.post(
             "/me/transfers",
             json={"to_username": "luis", "amount_cents": 50_000},
             headers={**h["ana"], "Idempotency-Key": str(uuid.uuid4())},
         )
+    # ...y todavía puede pagarle a la Clínica.
     charge = cobrar(client, h, monto=1_000)
+    assert pagar(client, h["ana"], charge["id"]).status_code == 200
+
+
+def test_limite_diario_de_pagos(client: TestClient, h: dict) -> None:
+    for _ in range(2):  # US$2.000 pagados: justo el límite
+        charge = cobrar(client, h, monto=100_000)
+        assert pagar(client, h["ana"], charge["id"]).status_code == 200
+    charge = cobrar(client, h, monto=100)
     r = pagar(client, h["ana"], charge["id"])
     assert r.status_code == 422
     assert "límite diario" in r.json()["detail"]
