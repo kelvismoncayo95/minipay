@@ -28,6 +28,23 @@ def get_balance(db: Session, account_id: uuid.UUID) -> int:
     return db.scalar(consulta)
 
 
+def get_account_for_user(db: Session, user_id: uuid.UUID) -> Account | None:
+    """La cuenta de dinero de un usuario (None si no tiene, ej. el admin)."""
+    return db.scalars(select(Account).where(Account.user_id == user_id)).first()
+
+
+def list_entries(db: Session, account_id: uuid.UUID, limit: int = 50) -> list[LedgerEntry]:
+    """Renglones de una cuenta, del más nuevo al más viejo."""
+    consulta = (
+        select(LedgerEntry)
+        .join(LedgerEntry.transaction)
+        .where(LedgerEntry.account_id == account_id)
+        .order_by(LedgerTransaction.seq.desc())
+        .limit(limit)
+    )
+    return list(db.scalars(consulta))
+
+
 def get_system_account(db: Session) -> Account:
     """La cuenta del Banco de juguete. Tiene que existir exactamente una."""
     return db.scalars(select(Account).where(Account.kind == "system")).one()
