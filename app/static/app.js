@@ -7,7 +7,20 @@ const app = document.getElementById("app");
 // ---------- Formatos ----------
 const pesosFmt = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" });
 const fmt = (cents) => pesosFmt.format(cents / 100);
-const aCentavos = (valor) => Math.round(parseFloat(String(valor).replace(",", ".")) * 100);
+/** Texto escrito por una persona → centavos. Acepta "4,80", "4.80", "1.000,50", "1000".
+ *  Devuelve NaN si no es un monto válido (o tiene más de 2 decimales). */
+function aCentavos(valor) {
+  const t = String(valor).trim().replace(/\s|\$/g, "");
+  let normal;
+  if (/^\d{1,3}(\.\d{3})*(,\d{1,2})?$/.test(t) || /^\d+(,\d{1,2})?$/.test(t)) {
+    normal = t.replace(/\./g, "").replace(",", "."); // coma decimal, puntos de miles
+  } else if (/^\d+(\.\d{1,2})?$/.test(t)) {
+    normal = t; // punto decimal: "4.80"
+  } else {
+    return NaN;
+  }
+  return Math.round(parseFloat(normal) * 100);
+}
 // hourCycle h23: algunos navegadores muestran "05:55" (sin a. m./p. m.) para las 17:55.
 const fecha = (iso) =>
   new Date(iso).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short", hourCycle: "h23" });
@@ -73,13 +86,16 @@ function pantalla({ paso, total, titulo, explica, cuerpo = [], acciones = [], cl
 }
 
 /** Tarjeta final: ✔ (salió bien) o ✘ (no salió), con el detalle. */
-function resultado({ ok, titulo, explica, filas = [], motivo, acciones }) {
+function resultado({ ok, titulo, explica, filas = [], motivo, referencia, acciones }) {
   const card = pantalla({
     clase: `resultado ${ok ? "ok" : "mal"}`,
     titulo,
     explica,
     cuerpo: [
       h("div", { class: "sello" }, ok ? "✔" : "✘"),
+      referencia
+        ? h("p", { class: "referencia" }, referencia.titulo, h("strong", {}, referencia.valor))
+        : null,
       motivo ? h("div", { class: "motivo" }, motivo) : null,
       filas.length ? resumen(filas) : null,
     ],
@@ -89,15 +105,38 @@ function resultado({ ok, titulo, explica, filas = [], motivo, acciones }) {
   return card;
 }
 
+/** Pantalla de espera mientras la API valida y procesa. */
+function procesando(titulo, pasos) {
+  pantalla({
+    clase: "procesando",
+    titulo,
+    explica: "No cierres esta pantalla.",
+    cuerpo: [h("div", { class: "spinner", "aria-hidden": "true" }), h("ul", { class: "chequeos" }, pasos.map((p) => h("li", {}, p)))],
+  });
+}
+
+/** Espera la respuesta de la API, pero muestra "Validando…" al menos un momento
+ *  (si la API contesta en 50 ms, la pantalla parpadearía y no se llegaría a leer). */
+async function conMinimo(promesa, ms = 900) {
+  const [r] = await Promise.allSettled([promesa, new Promise((ok) => setTimeout(ok, ms))]);
+  if (r.status === "rejected") throw r.reason;
+  return r.value;
+}
+
+const ref = (prefijo, id) => ({ titulo: "N.º de referencia", valor: `${prefijo}-${corto(id)}` });
+const refIntento = (clave) => ({ titulo: "Código del intento", valor: `INT-${corto(clave)}` });
+
 /** Campo de monto en pesos con validación. */
 function campoMonto(etiqueta, ayuda) {
-  const input = h("input", { type: "number", inputmode: "decimal", min: "0.01", step: "0.01", placeholder: "0,00" });
+  // type="text" + inputmode="decimal": teclado numérico CON coma en el celular.
+  // (type="number" rechaza "4,80" en iPhone en español.)
+  const input = h("input", { type: "text", inputmode: "decimal", autocomplete: "off", placeholder: "0,00" });
   const error = h("p", { class: "error-campo", hidden: true });
   const el = h("div", {}, h("label", {}, etiqueta, input), ayuda ? h("p", { class: "ayuda" }, ayuda) : null, error);
   return {
     el,
     input,
-    leer() { return input.value ? aCentavos(input.value) : NaN; },
+    leer() { return aCentavos(input.value); },
     error(texto) { error.textContent = texto; error.hidden = !texto; },
   };
 }
@@ -278,8 +317,9 @@ async function saldoPaso2(nuevo) {
 }
 
 async function saldoEnviar(nuevo) {
+  procesando("Cambiando tu saldo…", ["Revisando el monto", "Revisando el límite de cambios por hora"]);
   try {
-    const r = await api("PUT", "/me/balance", { balance_cents: nuevo });
+    const r = await conMinimo(api("PUT", "/me/balance", { balance_cents: nuevo }));
     resultado({
       ok: true,
       titulo: "¡Listo! Tu saldo cambió",
@@ -315,10 +355,10 @@ function transferirPaso1() {
 async function transferirPaso2(t) {
   const saldo = await saldoActual();
   const monto = campoMonto(`Monto para ${nombreDe(t.para)} ($)`, "Máximo $5.000 por transferencia y $10.000 por día.");
-  if (t.monto) monto.input.value = (t.monto / 100).toString();
+  if (t.monto) monto.input.value = (t.monto / 100).toFixed(2).replace(".", ",");
   const seguir = () => {
     const c = monto.leer();
-    if (!(c > 0)) return monto.error("Escribí un monto mayor a $0.");
+    if (!(c > 0)) return monto.error("Escribí un monto válido, por ejemplo 4,80.");
     if (c > MAX_OPERACION) return monto.error("El máximo por transferencia es $5.000.");
     if (c > saldo) return monto.error(`No te alcanza: tenés ${fmt(saldo)}.`);
     transferirPaso3({ ...t, monto: c, saldo, key: null });
@@ -352,18 +392,25 @@ function transferirPaso3(t) {
 }
 
 async function transferirEnviar(t) {
+  procesando("Validando la transferencia…", [
+    "Verificando tu saldo",
+    "Revisando los límites",
+    `Enviando el dinero a ${nombreDe(t.para)}`,
+  ]);
   try {
-    const r = await api("POST", "/me/transfers", { to_username: t.para, amount_cents: t.monto }, { "Idempotency-Key": t.key });
+    const r = await conMinimo(
+      api("POST", "/me/transfers", { to_username: t.para, amount_cents: t.monto }, { "Idempotency-Key": t.key })
+    );
     resultado({
       ok: true,
       titulo: "Transferencia enviada",
       explica: `${nombreDe(t.para)} ya recibió el dinero.`,
+      referencia: ref("TRF", r.transaction_id),
       filas: [
         ["Para", nombreDe(t.para)],
         ["Monto", fmt(r.amount_cents)],
         ["Tu saldo ahora", fmt(r.balance_cents)],
         ["Fecha", fecha(new Date().toISOString())],
-        ["Comprobante", corto(r.transaction_id)],
       ],
       acciones: [boton("Hacer otra", () => transferirPaso1()), volverInicio()],
     });
@@ -375,6 +422,7 @@ async function transferirEnviar(t) {
       ok: false,
       titulo: "No se pudo transferir",
       explica: e.red ? "No sabemos si llegó. Reintentá: no se va a mandar dos veces." : "No se movió ningún dinero.",
+      referencia: refIntento(t.key),
       motivo: e.message,
       acciones: [...acciones, volverInicio()],
     });
@@ -426,13 +474,16 @@ async function cobroDetalle(c) {
 }
 
 async function cobroResolver(c, accion) {
+  procesando(accion === "pay" ? "Validando el pago…" : "Rechazando el cobro…",
+    accion === "pay" ? ["Verificando tu saldo", "Revisando los límites", "Pagándole al comercio"] : ["Avisándole al comercio"]);
   try {
     const headers = accion === "pay" ? { "Idempotency-Key": c.key } : {};
-    const r = await api("POST", `/me/charges/${c.id}/${accion}`, undefined, headers);
+    const r = await conMinimo(api("POST", `/me/charges/${c.id}/${accion}`, undefined, headers));
     resultado({
       ok: true,
       titulo: accion === "pay" ? "Cobro pagado" : "Cobro rechazado",
       explica: accion === "pay" ? `${nombreDe(c.merchant_username)} ya recibió el dinero.` : "No se movió dinero.",
+      referencia: ref("COB", r.id),
       filas: [
         ["Comercio", nombreDe(r.merchant_username)],
         ["Concepto", r.description],
@@ -447,6 +498,7 @@ async function cobroResolver(c, accion) {
       ok: false,
       titulo: "No se pudo resolver el cobro",
       explica: e.red ? "No sabemos si se pagó. Reintentá: no se va a cobrar dos veces." : "No se movió ningún dinero.",
+      referencia: accion === "pay" ? refIntento(c.key) : ref("COB", c.id),
       motivo: e.message,
       acciones: [boton(e.red ? "Reintentar" : "Ver cobros", () => (e.red ? cobroDetalle(c) : cobrosLista()), "primario"), volverInicio()],
     });
@@ -469,7 +521,7 @@ function cobrarPaso2(c) {
   const monto = campoMonto("Monto ($)", "Máximo $5.000.");
   const concepto = h("input", { maxlength: "200", placeholder: "Ej.: Consulta general" });
   const errConcepto = h("p", { class: "error-campo", hidden: true });
-  if (c.monto) monto.input.value = (c.monto / 100).toString();
+  if (c.monto) monto.input.value = (c.monto / 100).toFixed(2).replace(".", ",");
   if (c.concepto) concepto.value = c.concepto;
   const seguir = () => {
     const cents = monto.leer();
@@ -505,11 +557,15 @@ function cobrarPaso3(c) {
 
 async function cobrarEnviar(c) {
   try {
-    const r = await api("POST", "/merchant/charges", { payer_username: c.a, amount_cents: c.monto, description: c.concepto });
+    procesando("Enviando el cobro…", ["Revisando el monto", `Avisándole a ${nombreDe(c.a)}`]);
+    const r = await conMinimo(
+      api("POST", "/merchant/charges", { payer_username: c.a, amount_cents: c.monto, description: c.concepto })
+    );
     resultado({
       ok: true,
       titulo: "Cobro enviado",
       explica: `${nombreDe(c.a)} lo va a ver en "Cobros" y decide si lo paga.`,
+      referencia: ref("COB", r.id),
       filas: [["A", nombreDe(r.payer_username)], ["Concepto", r.description], ["Monto", fmt(r.amount_cents)], ["Estado", ESTADOS[r.status]]],
       acciones: [boton("Cobrar otra vez", () => cobrarPaso1()), volverInicio()],
     });
