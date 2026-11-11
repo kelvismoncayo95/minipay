@@ -302,5 +302,16 @@ $("#conciliar").addEventListener("click", (ev) =>
   conBoton(ev.target, async () => mostrarConciliacion(await api("POST", "/admin/reconciliation")))
 );
 
+// ---------- REFRESCO AUTOMÁTICO ----------
+// Cada 10 s (solo con la pestaña visible), y al volver a la pestaña.
+// Así Ana ve la transferencia de Marta sin recargar la página.
+function refrescoSilencioso() {
+  if (!token || !yo || document.hidden) return;
+  const tarea = yo.role === "admin" ? cargarConciliacion() : refrescar();
+  tarea.catch(() => {}); // si falla la red, se reintenta en el próximo ciclo
+}
+setInterval(refrescoSilencioso, 10_000);
+document.addEventListener("visibilitychange", refrescoSilencioso);
+
 // ---------- INICIO ----------
 if (token) entrar().catch(salir);

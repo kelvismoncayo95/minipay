@@ -22,3 +22,9 @@ def test_archivos_estaticos() -> None:
 def test_la_api_sigue_respondiendo() -> None:
     assert client.get("/health").json() == {"status": "ok"}
     assert client.get("/docs").status_code == 200
+
+
+def test_respuestas_de_la_api_no_se_guardan_en_cache() -> None:
+    # Si el navegador guarda /me/balance en caché, muestra un saldo viejo.
+    r = client.get("/health")
+    assert r.headers["cache-control"] == "no-store"
