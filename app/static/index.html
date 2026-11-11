@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>minipay — billetera de juguete</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="aviso" role="note">⚠️ Dinero de mentira. Demo pública. No uses datos reales.</div>
+
+  <header class="top">
+    <h1>minipay</h1>
+    <div id="sesion" hidden>
+      <span id="quien"></span>
+      <button id="salir" class="link">Salir</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- LOGIN -->
+    <section id="vista-login" class="card">
+      <h2>Entrar a la demo</h2>
+      <p class="muted">Elegí un usuario. La contraseña de todos es <code>demo1234</code>.</p>
+      <div class="usuarios">
+        <button data-user="ana">Ana</button>
+        <button data-user="luis">Luis</button>
+        <button data-user="marta">Marta</button>
+        <button data-user="pedro">Pedro</button>
+        <button data-user="clinica-del-sur">Clínica del Sur</button>
+        <button data-user="admin">Admin</button>
+      </div>
+      <form id="form-login" class="form">
+        <label>Usuario <input name="username" required autocomplete="username"></label>
+        <label>Contraseña <input name="password" type="password" value="demo1234" required autocomplete="current-password"></label>
+        <button type="submit" class="primario">Entrar</button>
+      </form>
+    </section>
+
+    <!-- PERSONA / COMERCIO -->
+    <section id="vista-cuenta" hidden>
+      <div class="card saldo">
+        <p class="muted">Tu saldo</p>
+        <p id="saldo" class="monto-grande">—</p>
+      </div>
+
+      <div id="bloque-elegir" class="card">
+        <h2>Elegir saldo de juguete</h2>
+        <p class="muted">Entre $1 y $5.000. Máximo 5 cambios por hora.</p>
+        <div class="atajos">
+          <button data-saldo="10000">$100</button>
+          <button data-saldo="100000">$1.000</button>
+          <button data-saldo="500000">$5.000</button>
+        </div>
+        <form id="form-saldo" class="form fila">
+          <input name="monto" type="number" min="1" max="5000" step="0.01" placeholder="Otro monto" required>
+          <button type="submit">Elegir</button>
+        </form>
+      </div>
+
+      <div id="bloque-transferir" class="card">
+        <h2>Transferir</h2>
+        <form id="form-transferir" class="form">
+          <label>A quién
+            <select name="to_username" required>
+              <option value="ana">Ana</option>
+              <option value="luis">Luis</option>
+              <option value="marta">Marta</option>
+              <option value="pedro">Pedro</option>
+            </select>
+          </label>
+          <label>Monto ($) <input name="monto" type="number" min="0.01" max="5000" step="0.01" required></label>
+          <button type="submit" class="primario">Transferir</button>
+        </form>
+      </div>
+
+      <div id="bloque-cobros" class="card">
+        <h2>Cobros que te hicieron</h2>
+        <ul id="lista-cobros" class="lista"></ul>
+      </div>
+
+      <div id="bloque-cobrar" class="card" hidden>
+        <h2>Cobrar a una persona</h2>
+        <form id="form-cobrar" class="form">
+          <label>A quién
+            <select name="payer_username" required>
+              <option value="ana">Ana</option>
+              <option value="luis">Luis</option>
+              <option value="marta">Marta</option>
+              <option value="pedro">Pedro</option>
+            </select>
+          </label>
+          <label>Monto ($) <input name="monto" type="number" min="0.01" max="5000" step="0.01" required></label>
+          <label>Concepto <input name="description" maxlength="200" placeholder="Consulta general" required></label>
+          <button type="submit" class="primario">Crear cobro</button>
+        </form>
+        <h3>Mis cobros</h3>
+        <ul id="lista-cobros-comercio" class="lista"></ul>
+      </div>
+
+      <div class="card">
+        <h2>Movimientos</h2>
+        <ul id="lista-movimientos" class="lista"></ul>
+      </div>
+    </section>
+
+    <!-- ADMIN -->
+    <section id="vista-admin" class="card" hidden>
+      <h2>Conciliación del libro</h2>
+      <p class="muted">Todo el libro tiene que sumar exactamente $0. El worker lo revisa cada 15 minutos.</p>
+      <div id="conciliacion" class="conciliacion">—</div>
+      <button id="conciliar" class="primario">Revisar ahora</button>
+    </section>
+  </main>
+
+  <div id="mensaje" class="mensaje" role="status" hidden></div>
+
+  <footer class="pie">
+    <a href="/docs">API (Swagger)</a> · Proyecto de portafolio · Dinero de mentira
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
