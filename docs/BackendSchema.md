@@ -62,9 +62,37 @@
 
 ## 3. Tablas del paso 2 (libro contable)
 
-_(se completan cuando estén cerradas las decisiones de la sección 2)_
+### 3.1 `users` — decidido 2026-11-11
 
-- `users`
-- `accounts`
+| Columna | Tipo | Reglas | Para qué |
+|---|---|---|---|
+| `id` | `UUID` | clave primaria | identificador (2.3) |
+| `username` | `TEXT` | `NOT NULL`, `UNIQUE` | nombre para entrar: `ana`, `clinica-del-sur` |
+| `display_name` | `TEXT` | `NOT NULL` | nombre en pantalla: `Ana`, `Clínica del Sur (demo)` |
+| `role` | `TEXT` | `NOT NULL`, `CHECK (role IN ('user','merchant','admin'))` | qué puede hacer |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, default `now()` | cuándo se creó |
+
+**Notas:**
+- `username` es único porque identifica a **una** persona al entrar. `display_name` se puede repetir (puede haber muchas "Ana").
+- `password_hash` se agrega en el paso 4 (login), con una migración nueva.
+- `CHECK` en vez de `ENUM`: más fácil de cambiar después.
+
+### 3.2 `accounts` — decidido 2026-11-11
+
+| Columna | Tipo | Reglas | Para qué |
+|---|---|---|---|
+| `id` | `UUID` | clave primaria | identificador |
+| `user_id` | `UUID` | clave foránea a `users.id`, `UNIQUE`, puede ser `NULL` | dueño de la cuenta |
+| `kind` | `TEXT` | `NOT NULL`, `CHECK (kind IN ('user','system'))` | cuenta de persona o del sistema |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, default `now()` | cuándo se creó |
+
+**Regla entre columnas:** `CHECK ((kind = 'system' AND user_id IS NULL) OR (kind = 'user' AND user_id IS NOT NULL))`.
+
+**Notas:**
+- Una cuenta por usuario en v1 (`UNIQUE` en `user_id`).
+- **No hay columna de saldo:** se calcula sumando las líneas (sección 1).
+- "Las personas no pueden quedar en negativo" **no se puede expresar como `CHECK`** (depende de una suma). La controla el código al transferir, bloqueando la cuenta mientras calcula.
+
+### Pendientes
 - `ledger_transactions`
 - `ledger_entries`
