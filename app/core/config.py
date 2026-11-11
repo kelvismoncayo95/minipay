@@ -1,6 +1,16 @@
-"""Configuración de la aplicación. Lee las variables del .env."""
+"""Configuración de la aplicación. Lee las variables del .env o del entorno."""
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def normalize_database_url(url: str) -> str:
+    """Los hostings suelen dar `postgres://...`; SQLAlchemy + psycopg 3 necesita
+    `postgresql+psycopg://...`."""
+    for prefijo in ("postgres://", "postgresql://"):
+        if url.startswith(prefijo):
+            return "postgresql+psycopg://" + url[len(prefijo):]
+    return url
 
 
 class Settings(BaseSettings):
@@ -17,6 +27,11 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
+    @field_validator("database_url")
+    @classmethod
+    def _normalizar(cls, valor: str) -> str:
+        return normalize_database_url(valor)
 
 
 settings = Settings()
