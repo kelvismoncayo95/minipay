@@ -6,7 +6,7 @@ Billetera digital de dinero de juguete. Demo pública para demostrar que se pued
 
 ## Estado
 
-En construcción. Pasos 0 a 5 completados: entorno, Docker Compose, esquema del libro contable con migraciones, datos demo, login y API de saldo y movimientos.
+En construcción. Pasos 0 a 6 completados: entorno, Docker Compose, esquema del libro contable con migraciones, datos demo, login, API de saldo y movimientos, y transferencias seguras ante concurrencia.
 
 | Endpoint | Qué hace |
 |---|---|
@@ -14,7 +14,10 @@ En construcción. Pasos 0 a 5 completados: entorno, Docker Compose, esquema del 
 | `GET /auth/me` | quién soy |
 | `GET /me/balance` | mi saldo (en centavos) |
 | `PUT /me/balance` | elegir mi saldo de juguete ($1 a $5.000) |
+| `POST /me/transfers` | mandarle dinero a otra persona |
 | `GET /me/movements` | mis últimos 50 movimientos |
+
+**Concurrencia:** dos transferencias simultáneas desde la misma cuenta no pueden dejarla en negativo. Cada transferencia bloquea las dos cuentas (`SELECT ... FOR UPDATE`, siempre en el mismo orden para evitar deadlocks). Hay un test que lanza dos hilos a la vez y que **falla si se quita el bloqueo** (comprobado).
 
 ## Probar la demo
 
