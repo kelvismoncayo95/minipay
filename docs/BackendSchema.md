@@ -71,10 +71,11 @@
 | `display_name` | `TEXT` | `NOT NULL` | nombre en pantalla: `Ana`, `Clínica del Sur (demo)` |
 | `role` | `TEXT` | `NOT NULL`, `CHECK (role IN ('user','merchant','admin'))` | qué puede hacer |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL`, default `now()` | cuándo se creó |
+| `password_hash` | `TEXT` | puede ser `NULL` | hash bcrypt de la contraseña (paso 4). `NULL` = no puede entrar |
 
 **Notas:**
 - `username` es único porque identifica a **una** persona al entrar. `display_name` se puede repetir (puede haber muchas "Ana").
-- `password_hash` se agrega en el paso 4 (login), con una migración nueva.
+- `password_hash` se agregó en el paso 4 con la migración `c090afa7b211`. Nunca se guarda la contraseña, solo su hash.
 - `CHECK` en vez de `ENUM`: más fácil de cambiar después.
 
 ### 3.2 `accounts` — decidido 2026-11-11
