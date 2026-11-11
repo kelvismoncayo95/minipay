@@ -93,6 +93,37 @@
 - **No hay columna de saldo:** se calcula sumando las líneas (sección 1).
 - "Las personas no pueden quedar en negativo" **no se puede expresar como `CHECK`** (depende de una suma). La controla el código al transferir, bloqueando la cuenta mientras calcula.
 
-### Pendientes
-- `ledger_transactions`
-- `ledger_entries`
+### 3.3 `ledger_transactions` (el movimiento) — decidido 2026-11-11
+
+| Columna | Tipo | Reglas | Para qué |
+|---|---|---|---|
+| `id` | `UUID` | clave primaria | identificador |
+| `kind` | `TEXT` | `NOT NULL`, `CHECK (kind IN ('balance_set','transfer'))` | tipo de movimiento |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, default `now()` | cuándo pasó |
+
+- `balance_set`: cambio de saldo entre el Banco de juguete y una persona.
+- `transfer`: transferencia entre dos personas.
+- Cobros y reembolsos se agregan a `kind` en sus pasos.
+
+### 3.4 `ledger_entries` (los renglones) — decidido 2026-11-11
+
+| Columna | Tipo | Reglas | Para qué |
+|---|---|---|---|
+| `id` | `UUID` | clave primaria | identificador |
+| `transaction_id` | `UUID` | `NOT NULL`, clave foránea a `ledger_transactions.id` | a qué movimiento pertenece |
+| `account_id` | `UUID` | `NOT NULL`, clave foránea a `accounts.id`, **con índice** | qué cuenta se mueve |
+| `amount` | `BIGINT` | `NOT NULL`, `CHECK (amount <> 0)` | centavos: negativo sale, positivo entra |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, default `now()` | cuándo se anotó |
+
+**Notas:**
+- Una sola columna con signo en vez de debe/haber: misma idea, más simple.
+- El índice en `account_id` hace rápido el cálculo del saldo (`SUM(amount) WHERE account_id = ...`).
+- **"Suma cero"** no se puede expresar como `CHECK` (son varias filas). En v1: el código crea el movimiento y sus renglones juntos en **una sola transacción de base de datos**, y un test lo verifica. Mejora futura: un trigger en PostgreSQL.
+
+---
+
+## 4. Regla de oro: solo agregar (append-only)
+
+- Los renglones (`ledger_entries`) y los movimientos (`ledger_transactions`) **nunca se modifican ni se borran**.
+- Si hubo un error, se agrega un movimiento nuevo que lo compensa.
+- Así siempre queda la historia completa y nadie hace desaparecer dinero sin dejar rastro.
