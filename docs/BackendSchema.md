@@ -123,6 +123,25 @@
 - El índice en `account_id` hace rápido el cálculo del saldo (`SUM(amount) WHERE account_id = ...`).
 - **"Suma cero"** no se puede expresar como `CHECK` (son varias filas). En v1: el código crea el movimiento y sus renglones juntos en **una sola transacción de base de datos**, y un test lo verifica. Mejora futura: un trigger en PostgreSQL.
 
+### 3.5 `idempotency_keys` (pedidos ya procesados) — decidido 2026-11-11 (paso 7)
+
+| Columna | Tipo | Reglas | Para qué |
+|---|---|---|---|
+| `id` | `UUID` | clave primaria | identificador |
+| `user_id` | `UUID` | `NOT NULL`, clave foránea a `users.id` | quién mandó el pedido |
+| `key` | `TEXT` | `NOT NULL` | la clave del header `Idempotency-Key` (8 a 100 caracteres) |
+| `request_hash` | `TEXT` | `NOT NULL` | huella SHA-256 del pedido (tipo + destino + monto) |
+| `transaction_id` | `UUID` | clave foránea a `ledger_transactions.id`, puede ser `NULL` | el movimiento que produjo |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, default `now()` | cuándo llegó |
+
+**Regla:** `UNIQUE (user_id, key)` (`uq_idempotency_keys_user_key`): la clave es única **por usuario**.
+
+**Notas:**
+- Se inserta con `INSERT ... ON CONFLICT DO NOTHING`: si dos pedidos con la misma clave llegan a la vez, PostgreSQL hace esperar al segundo hasta que el primero termine.
+- Misma clave + mismo pedido → se devuelve el movimiento guardado. Misma clave + otro pedido → error.
+- Si la operación falla (ej. saldo insuficiente), la clave **no** queda guardada (savepoint): se puede reintentar.
+- Migración `eb426c5d4173`.
+
 ---
 
 ## 4. Regla de oro: solo agregar (append-only)

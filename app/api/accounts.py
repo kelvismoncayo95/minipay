@@ -1,6 +1,6 @@
-"""Endpoints de la cuenta del usuario logueado: /me/balance y /me/movements."""
+"""Endpoints de la cuenta del usuario logueado: saldo, transferencias y movimientos."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -21,8 +21,8 @@ from app.services.ledger import (
     get_balance,
     list_entries,
     set_balance,
-    transfer,
 )
+from app.services.idempotency import IdempotencyConflictError, idempotent_transfer
 
 router = APIRouter(prefix="/me", tags=["cuenta"])
 
@@ -65,18 +65,28 @@ def choose_balance(
 @router.post("/transfers", response_model=TransferOut, status_code=status.HTTP_201_CREATED)
 def make_transfer(
     body: TransferRequest,
+    response: Response,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=8, max_length=100),
     user: User = Depends(get_current_user),
     account: Account = Depends(get_my_account),
     db: Session = Depends(get_db),
 ) -> TransferOut:
-    """Mandarle dinero a otra persona."""
+    """Mandarle dinero a otra persona.
+
+    Requiere el header `Idempotency-Key` (ej. un UUID nuevo por cada transferencia).
+    Si el mismo pedido llega dos veces con la misma clave, se cobra una sola vez.
+    """
     if user.role != "user":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Solo las personas pueden transferir.")
     try:
-        tx = transfer(db, account.id, body.to_username, body.amount_cents)
-    except (InvalidTransferError, InsufficientFundsError) as error:
+        tx, repetido = idempotent_transfer(
+            db, user.id, account.id, idempotency_key, body.to_username, body.amount_cents
+        )
+    except (InvalidTransferError, InsufficientFundsError, IdempotencyConflictError) as error:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(error)) from None
     db.commit()
+    if repetido:
+        response.headers["Idempotent-Replayed"] = "true"
     return TransferOut(
         transaction_id=tx.id,
         amount_cents=body.amount_cents,
