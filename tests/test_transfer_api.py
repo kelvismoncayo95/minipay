@@ -1,5 +1,6 @@
-"""Tests del endpoint de transferencias (paso 6)."""
+"""Tests del endpoint de transferencias (pasos 6 y 7)."""
 
+import uuid
 from collections.abc import Generator
 
 import pytest
@@ -31,8 +32,36 @@ def ana(client: TestClient) -> dict[str, str]:
     return h
 
 
-def mandar(client: TestClient, h: dict[str, str], to: str, monto: int):
-    return client.post("/me/transfers", json={"to_username": to, "amount_cents": monto}, headers=h)
+def mandar(client: TestClient, h: dict[str, str], to: str, monto: int, key: str | None = None):
+    headers = {**h, "Idempotency-Key": key or str(uuid.uuid4())}
+    return client.post(
+        "/me/transfers", json={"to_username": to, "amount_cents": monto}, headers=headers
+    )
+
+
+def test_sin_idempotency_key_rechazado(client: TestClient, ana: dict[str, str]) -> None:
+    r = client.post("/me/transfers", json={"to_username": "luis", "amount_cents": 1}, headers=ana)
+    assert r.status_code == 422
+
+
+def test_reintento_con_la_misma_clave_cobra_una_vez(
+    client: TestClient, ana: dict[str, str]
+) -> None:
+    r1 = mandar(client, ana, "luis", 25_000, key="mi-clave-123")
+    r2 = mandar(client, ana, "luis", 25_000, key="mi-clave-123")
+
+    assert r1.status_code == r2.status_code == 201
+    assert r1.json()["transaction_id"] == r2.json()["transaction_id"]
+    assert "Idempotent-Replayed" not in r1.headers
+    assert r2.headers["Idempotent-Replayed"] == "true"
+    assert client.get("/me/balance", headers=ana).json()["balance_cents"] == 75_000
+
+
+def test_misma_clave_otro_monto_rechazado(client: TestClient, ana: dict[str, str]) -> None:
+    mandar(client, ana, "luis", 25_000, key="mi-clave-123")
+    r = mandar(client, ana, "luis", 1_000, key="mi-clave-123")
+    assert r.status_code == 422
+    assert "Idempotency-Key" in r.json()["detail"]
 
 
 def test_transferir(client: TestClient, ana: dict[str, str]) -> None:
