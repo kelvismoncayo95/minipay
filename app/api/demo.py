@@ -7,8 +7,10 @@ from pydantic import BaseModel
 
 from app.core.demo import (
     CURRENCY,
+    DAILY_PAYMENT_LIMIT,
     DAILY_TRANSFER_LIMIT,
     INITIAL_BALANCES,
+    MAX_PAYMENT,
     MAX_TRANSFER,
     RESET_HOUR,
     TIMEZONE,
@@ -27,7 +29,9 @@ class DemoInfo(BaseModel):
     total_pool_cents: int
     initial_balances_cents: dict[str, int]
     max_transfer_cents: int
-    daily_limit_cents: int
+    daily_limit_cents: int  # transferencias
+    max_payment_cents: int
+    daily_payment_limit_cents: int
 
 
 @router.get("/info", response_model=DemoInfo)
@@ -41,4 +45,6 @@ def info() -> DemoInfo:
         initial_balances_cents=INITIAL_BALANCES,
         max_transfer_cents=MAX_TRANSFER,
         daily_limit_cents=DAILY_TRANSFER_LIMIT,
+        max_payment_cents=MAX_PAYMENT,
+        daily_payment_limit_cents=DAILY_PAYMENT_LIMIT,
     )

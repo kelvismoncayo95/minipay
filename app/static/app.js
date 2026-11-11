@@ -26,7 +26,8 @@ const fecha = (iso) =>
   new Date(iso).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short", hourCycle: "h23" });
 const corto = (id) => String(id).slice(0, 8).toUpperCase();
 
-const MAX_OPERACION = 50_000; // US$500 (igual que la API)
+const MAX_OPERACION = 50_000; // US$500 por transferencia (igual que la API)
+const MAX_COBRO = 100_000; // US$1.000 por cobro (límites separados)
 const TIPOS = {
   balance_set: "Cambio de saldo",
   transfer: "Transferencia",
@@ -282,7 +283,10 @@ async function inicio() {
       : "Sos un comercio: le cobrás a las personas y ellas te pagan desde su cuenta. ") +
       "Todos los días a las 3:00 (hora de Uruguay) la demo vuelve a empezar: cada persona arranca con US$2.500.",
     cuerpo: [
-      h("div", { class: "saldo" }, h("p", {}, "Tu saldo"), h("p", { class: "monto-grande", id: "saldo-num" }, fmt(saldo))),
+      h("div", { class: "wallet" },
+        h("p", { class: "wallet-label" }, "Saldo de hoy"),
+        h("p", { class: "monto-grande", id: "saldo-num" }, fmt(saldo)),
+        h("p", { class: "wallet-pie" }, h("span", {}, yo.display_name), h("span", {}, "Se reinicia 3:00 UY"))),
       h("div", { class: "opciones" }, opciones.map(opcion)),
     ],
   });
@@ -430,7 +434,7 @@ async function cobroDetalle(c) {
   pantalla({
     paso: 2, total: 2,
     titulo: "¿Pagás este cobro?",
-    explica: "Si lo pagás, el dinero pasa de tu cuenta a la del comercio. Si lo rechazás, no se mueve nada.",
+    explica: "Si lo pagás, el dinero pasa de tu cuenta a la del comercio (hasta US$2.000 por día en pagos, aparte de tus transferencias). Si lo rechazás, no se mueve nada.",
     cuerpo: [resumen([
       ["Comercio", nombreDe(c.merchant_username)],
       ["Concepto", c.description],
@@ -486,7 +490,7 @@ function cobrarPaso1() {
 }
 
 function cobrarPaso2(c) {
-  const monto = campoMonto("Monto (US$)", "Máximo US$500.");
+  const monto = campoMonto("Monto (US$)", "Máximo US$1.000 por cobro.");
   const concepto = h("input", { maxlength: "200", placeholder: "Ej.: Consulta general" });
   const errConcepto = h("p", { class: "error-campo", hidden: true });
   if (c.monto) monto.input.value = (c.monto / 100).toFixed(2).replace(".", ",");
@@ -495,7 +499,7 @@ function cobrarPaso2(c) {
     const cents = monto.leer();
     monto.error("");
     errConcepto.hidden = true;
-    if (!(cents > 0 && cents <= MAX_OPERACION)) return monto.error("Elegí un monto entre US$0,01 y US$500.");
+    if (!(cents > 0 && cents <= MAX_COBRO)) return monto.error("Elegí un monto entre US$0,01 y US$1.000.");
     if (!concepto.value.trim()) {
       errConcepto.textContent = "Escribí el concepto (para qué es el cobro).";
       errConcepto.hidden = false;

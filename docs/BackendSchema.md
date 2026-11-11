@@ -190,7 +190,7 @@ La corre el worker cada 15 minutos (y al arrancar). Si da distinto de 0, se escr
 - El límite diario y los movimientos que muestra el frontend se cuentan desde el último reinicio.
 - El reinicio lo dispara el worker (cada 15 min revisa) o el primer pedido autenticado del día (por si el servidor estuvo dormido). La fecha como clave primaria + `ON CONFLICT DO NOTHING` garantizan uno solo.
 - `ledger_transactions.kind` acepta `daily_reset`; `charges.status` acepta `expired`. Migración `c8bde2ba7083`.
-- Límites nuevos: **US$500 por operación**, **US$1.000 enviados por día**. Ya no existe "elegir saldo" en la API pública.
+- Límites nuevos (separados desde 2026-11-11): transferencias US$500 por operación y US$1.000 por día; pagos de cobros US$1.000 por cobro y US$2.000 por día. Cada uno se cuenta aparte. Ya no existe "elegir saldo" en la API pública.
 
 ---
 
