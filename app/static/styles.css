@@ -114,8 +114,11 @@ button.primario {
 }
 button.link { border: 0; background: none; padding: 0; }
 
-.acciones { display: flex; gap: 10px; margin-top: 20px; }
+.acciones { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
 .acciones button { flex: 1; }
+.acciones button.ancho { flex-basis: 100%; background: var(--brand-soft); color: var(--brand); border-color: transparent; }
+.derecha { display: flex; align-items: center; gap: 8px; }
+button.mini { padding: 4px 8px; font-size: 12px; border-radius: 8px; color: var(--brand); }
 
 /* Opciones grandes (elegir usuario, persona, acción) */
 .opciones { display: flex; flex-direction: column; gap: 10px; }

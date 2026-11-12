@@ -209,6 +209,28 @@ async function ocupado(btn, fn) {
 
 const saldoActual = async () => (await api("GET", "/me/balance")).balance_cents;
 
+/** Baja el comprobante PDF. Se pide con fetch (el token va en el header, nunca en la URL)
+ *  y se guarda como archivo. */
+async function bajarComprobante(transactionId, btn) {
+  await ocupado(btn, async () => {
+    const r = await fetch(`/me/receipts/${transactionId}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) {
+      btn.textContent = "No se pudo bajar el comprobante";
+      return;
+    }
+    const nombre = /filename="([^"]+)"/.exec(r.headers.get("content-disposition") || "")?.[1] || "minipay.pdf";
+    const url = URL.createObjectURL(await r.blob());
+    const a = h("a", { href: url, download: nombre });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  });
+}
+
+const botonComprobante = (transactionId) =>
+  boton("📄 Descargar comprobante (PDF)", (ev) => bajarComprobante(transactionId, ev.currentTarget), "ancho");
+
 // ---------- Sesión ----------
 function pantallaLogin(error) {
   document.getElementById("sesion").hidden = true;
@@ -384,7 +406,7 @@ async function transferirEnviar(t) {
         ["Tu saldo ahora", fmt(r.balance_cents)],
         ["Fecha", fecha(new Date().toISOString())],
       ],
-      acciones: [boton("Hacer otra", () => transferirPaso1()), volverInicio()],
+      acciones: [botonComprobante(r.transaction_id), boton("Hacer otra", () => transferirPaso1()), volverInicio()],
     });
   } catch (e) {
     const acciones = e.red
@@ -463,7 +485,11 @@ async function cobroResolver(c, accion) {
         ["Estado", ESTADOS[r.status]],
         ["Fecha", fecha(r.resolved_at)],
       ],
-      acciones: [boton("Ver cobros", () => cobrosLista()), volverInicio()],
+      acciones: [
+        r.transaction_id ? botonComprobante(r.transaction_id) : null,
+        boton("Ver cobros", () => cobrosLista()),
+        volverInicio(),
+      ].filter(Boolean),
     });
   } catch (e) {
     resultado({
@@ -574,7 +600,11 @@ async function movimientos() {
     cuerpo: [movs.length
       ? h("ul", { class: "lista" }, movs.map((m) =>
           h("li", {}, h("span", {}, TIPOS[m.kind] || m.kind, h("br"), h("small", {}, fecha(m.created_at))),
-            h("span", { class: m.amount_cents < 0 ? "negativo" : "positivo" }, `${m.amount_cents > 0 ? "+" : ""}${fmt(m.amount_cents)}`))))
+            h("span", { class: "derecha" },
+              h("span", { class: m.amount_cents < 0 ? "negativo" : "positivo" }, `${m.amount_cents > 0 ? "+" : ""}${fmt(m.amount_cents)}`),
+              m.kind === "transfer" || m.kind === "payment"
+                ? h("button", { type: "button", class: "mini", "aria-label": "Descargar comprobante", onclick: (ev) => bajarComprobante(m.transaction_id, ev.currentTarget) }, "PDF")
+                : null))))
       : h("p", { class: "explica" }, "Todavía no hay movimientos.")],
     acciones: [volverInicio()],
   });
