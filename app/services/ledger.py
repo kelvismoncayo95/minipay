@@ -194,7 +194,7 @@ def move_money(
     La usan las transferencias y los pagos de cobros.
     """
     maximo, maximo_dia = LIMITS_BY_KIND[kind]
-    que = "transferido" if kind == "transfer" else "pagado"
+    que = {"transfer": "transferido", "payment": "pagado"}.get(kind, "enviado")
     if amount <= 0:
         raise InvalidTransferError("El monto tiene que ser mayor que cero.")
     if amount > maximo:
@@ -215,7 +215,7 @@ def move_money(
 
     # Con la fila bloqueada, saldo y total del día ya no pueden cambiar hasta el commit.
     # Cada tipo tiene su propio límite diario: transferir no le quita margen a pagar.
-    if _sent_today(db, origen.id, kind) + amount > maximo_dia:
+    if maximo_dia is not None and _sent_today(db, origen.id, kind) + amount > maximo_dia:
         raise LimitExceededError(f"Superás el límite diario de {dinero(maximo_dia)} {que}s.")
     if get_balance(db, origen.id) < amount:
         raise InsufficientFundsError("Saldo insuficiente.")

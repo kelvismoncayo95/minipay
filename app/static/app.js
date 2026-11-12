@@ -33,8 +33,10 @@ const TIPOS = {
   transfer: "Transferencia",
   payment: "Pago de cobro",
   daily_reset: "Reinicio del día (tu saldo vuelve al inicial)", // el monto es la diferencia
+  refund: "Reembolso",
 };
-const ESTADOS = { pending: "Pendiente", paid: "Pagado", rejected: "Rechazado", expired: "Vencido" };
+const ESTADOS = { pending: "Pendiente", paid: "Pagado", rejected: "Rechazado", expired: "Vencido", refunded: "Reembolsado" };
+const CON_COMPROBANTE = new Set(["transfer", "payment", "refund"]);
 
 const USUARIOS = [
   { u: "ana", nombre: "Ana", icono: "👩", desc: "Persona: elige saldo, transfiere y paga cobros" },
@@ -581,14 +583,59 @@ async function misCobros() {
   const cobros = await api("GET", "/merchant/charges");
   pantalla({
     titulo: "Mis cobros",
-    explica: "Los cobros que enviaste y si ya te los pagaron.",
+    explica: "Los cobros que enviaste y si ya te los pagaron. Un cobro pagado se puede reembolsar (devolver el total) una sola vez.",
     cuerpo: [cobros.length
       ? h("ul", { class: "lista" }, cobros.map((c) =>
           h("li", {}, h("span", {}, c.description, h("br"), h("small", {}, `${nombreDe(c.payer_username)} · ${fmt(c.amount_cents)}`)),
-            h("span", { class: "estado" }, ESTADOS[c.status]))))
+            h("span", { class: "derecha" },
+              h("span", { class: "estado" }, ESTADOS[c.status]),
+              c.status === "paid" ? h("button", { type: "button", class: "mini", onclick: () => reembolsoConfirmar(c) }, "Reembolsar") : null))))
       : h("p", { class: "explica" }, "Todavía no cobraste nada.")],
     acciones: [volverInicio()],
   });
+}
+
+// ---------- Reembolso (comercio): confirmar → resultado ----------
+async function reembolsoConfirmar(c) {
+  const saldo = await saldoActual();
+  c.refundKey ||= nuevaClave(); // misma clave si reintenta: no se devuelve dos veces
+  const confirmar = boton("Reembolsar", (ev) => ocupado(ev.currentTarget, () => reembolsoEnviar(c)), "primario");
+  pantalla({
+    paso: 2, total: 2,
+    titulo: `¿Le devolvés el pago a ${nombreDe(c.payer_username)}?`,
+    explica: "Se devuelve el total del cobro, de tu cuenta a la de la persona. Se puede hacer una sola vez.",
+    cuerpo: [resumen([
+      ["A", nombreDe(c.payer_username)],
+      ["Concepto", c.description],
+      ["Monto", fmt(c.amount_cents)],
+      ["Tu saldo después", fmt(saldo - c.amount_cents)],
+    ])],
+    acciones: [boton("Volver", () => misCobros()), confirmar],
+  });
+}
+
+async function reembolsoEnviar(c) {
+  procesando("Procesando el reembolso…", ["Verificando tu saldo", `Devolviéndole el dinero a ${nombreDe(c.payer_username)}`]);
+  try {
+    const r = await conMinimo(api("POST", `/merchant/charges/${c.id}/refund`, undefined, { "Idempotency-Key": c.refundKey }));
+    resultado({
+      ok: true,
+      titulo: "Reembolso hecho",
+      explica: `${nombreDe(r.payer_username)} ya recibió el dinero de vuelta.`,
+      referencia: ref("REE", r.refund_transaction_id),
+      filas: [["A", nombreDe(r.payer_username)], ["Concepto", r.description], ["Monto", fmt(r.amount_cents)], ["Fecha", fecha(r.refunded_at)]],
+      acciones: [botonComprobante(r.refund_transaction_id), boton("Ver mis cobros", () => misCobros()), volverInicio()],
+    });
+  } catch (e) {
+    resultado({
+      ok: false,
+      titulo: "No se pudo reembolsar",
+      explica: e.red ? "No sabemos si se hizo. Reintentá: no se va a devolver dos veces." : "No se movió ningún dinero.",
+      referencia: refIntento(c.refundKey),
+      motivo: e.message,
+      acciones: [boton(e.red ? "Reintentar" : "Ver mis cobros", () => (e.red ? reembolsoConfirmar(c) : misCobros()), "primario"), volverInicio()],
+    });
+  }
 }
 
 // ---------- Movimientos ----------
@@ -602,7 +649,7 @@ async function movimientos() {
           h("li", {}, h("span", {}, TIPOS[m.kind] || m.kind, h("br"), h("small", {}, fecha(m.created_at))),
             h("span", { class: "derecha" },
               h("span", { class: m.amount_cents < 0 ? "negativo" : "positivo" }, `${m.amount_cents > 0 ? "+" : ""}${fmt(m.amount_cents)}`),
-              m.kind === "transfer" || m.kind === "payment"
+              CON_COMPROBANTE.has(m.kind)
                 ? h("button", { type: "button", class: "mini", "aria-label": "Descargar comprobante", onclick: (ev) => bajarComprobante(m.transaction_id, ev.currentTarget) }, "PDF")
                 : null))))
       : h("p", { class: "explica" }, "Todavía no hay movimientos.")],

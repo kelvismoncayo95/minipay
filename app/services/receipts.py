@@ -19,7 +19,11 @@ from app.core.demo import TIMEZONE
 from app.models import Account, LedgerEntry, LedgerTransaction, User
 from app.services.ledger import dinero
 
-TIPOS = {"transfer": ("TRF", "Comprobante de transferencia"), "payment": ("PAG", "Comprobante de pago")}
+TIPOS = {
+    "transfer": ("TRF", "Comprobante de transferencia"),
+    "payment": ("PAG", "Comprobante de pago"),
+    "refund": ("REE", "Comprobante de reembolso"),
+}
 
 
 @dataclass
