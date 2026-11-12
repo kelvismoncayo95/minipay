@@ -19,8 +19,8 @@
 | 11 | Comprobantes PDF | comprobante de cada movimiento (ReportLab) | ⏳ |
 | 12 | Webhooks y reembolsos | aviso al comercio; reembolso total de un cobro | |
 | 13 | Frontend | HTML/CSS/JS vanilla, con aviso "dinero de mentira" | ✅ 2026-11-11 (adelantado) |
-| 14 | Deploy | demo pública en internet | |
-| 15 | CI | GitHub Actions: tests en cada push | |
+| 14 | Deploy | Render + Neon + Upstash con `render.yaml` (worker en el mismo contenedor) | ⏳ preparado, falta publicar |
+| 15 | CI | GitHub Actions: tests + gitleaks en cada push | ⏳ configurado, se verifica en el primer push |
 | 16 | Panel admin y control | el admin ve todo; verificación "todas las cuentas suman cero" | |
 | 17 | Cierre de portafolio | README final, capturas, decisiones explicadas | |
 

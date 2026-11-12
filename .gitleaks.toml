@@ -1,0 +1,19 @@
+# Configuración de gitleaks para minipay.
+# Usa las reglas por defecto y permite solo los valores PÚBLICOS de la demo.
+title = "minipay gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Valores públicos o de prueba (no son secretos)"
+paths = [
+  '''\.env\.example''',
+  '''tests/.*''',
+]
+regexes = [
+  '''demo1234''',                                   # contraseña pública de la demo
+  '''minipay_dev_password''',                       # contraseña por defecto SOLO para Docker local
+  '''ci_password''',                                # base efímera de GitHub Actions
+  '''ci-solo-para-tests-no-es-un-secreto-real''',   # JWT de GitHub Actions
+]

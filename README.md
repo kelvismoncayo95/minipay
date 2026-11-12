@@ -1,111 +1,95 @@
 # minipay
 
-Billetera digital de dinero de juguete. Demo pública para demostrar que se puede construir un backend donde el dinero se mueve sin errores: nada se cobra dos veces, ningún saldo se descuadra, y todo movimiento queda registrado.
+**A toy-money digital wallet built to show a payments backend done right:** nothing is charged twice, no balance ever drifts, and every movement is recorded forever.
 
-> Advertencia: dinero de mentira. Demo pública. No usar para nada real.
+> ⚠️ **Fake money. Public demo.** Do not enter real data.
 
-## Estado
+[![Tests](https://github.com/kelvismoncayo95/minipay/actions/workflows/tests.yml/badge.svg)](https://github.com/kelvismoncayo95/minipay/actions/workflows/tests.yml)
 
-En construcción. Pasos 0 a 7 completados: entorno, Docker Compose, esquema del libro contable con migraciones, datos demo, login, API de saldo y movimientos, transferencias seguras ante concurrencia, idempotencia, límites, cobros de comercios, worker en segundo plano y frontend web.
+**Live demo:** _coming soon_ · **API docs (Swagger):** `/docs`
 
-**Frontend:** `http://localhost:8000/` (HTML, CSS y JavaScript sin frameworks, servido por la misma API). Botones para entrar como cada usuario demo; pantallas para persona, comercio y admin; funciona en el celular.
+*(The free hosting tier sleeps after inactivity: the first request can take ~50 seconds.)*
 
-**Conciliación automática:** un worker (Arq + Redis) suma todo el libro cada 15 minutos; tiene que dar exactamente 0. El admin la consulta en `GET /admin/reconciliation` o la corre en `POST /admin/reconciliation`.
+---
 
-**Cómo funciona la demo (fondo fijo):** hay **US$10.000** de juguete repartidos entre Ana, Luis, Marta y Pedro (US$2.500 cada uno). Se los pasan entre ellos y le pagan cobros a la Clínica. Todos los días a las **3:00 (hora de Uruguay)** todo vuelve a empezar, sin borrar nada: se agrega un movimiento de reinicio y el historial completo queda en la base.
+## Try it
 
-**Límites (separados):** transferencias entre personas: US$500 por operación y US$1.000 por día. Pagos de cobros a comercios: US$1.000 por cobro y US$2.000 por día. Transferir no le quita margen a pagar.
+Pick a character on the home screen. Password for every demo user: `demo1234`.
 
-| Endpoint | Qué hace |
+| User | Role | What they can do |
+|---|---|---|
+| `ana`, `luis`, `marta`, `pedro` | person | send money to each other, pay or reject charges |
+| `clinica-del-sur` | merchant | charge a person |
+| `admin` | admin | check that the whole ledger still sums to zero |
+
+**How the demo money works:** there are **US$10,000** shared by Ana, Luis, Marta and Pedro (US$2,500 each). Money only moves between accounts — it is never created out of thin air. Every day at **3:00 a.m. (Uruguay time)** the demo starts over **without deleting anything**: a compensating "daily reset" entry brings every account back to its starting balance.
+
+**Limits:** transfers between people US$500 per operation / US$1,000 per day · payments to merchants US$1,000 per charge / US$2,000 per day (counted separately).
+
+---
+
+## What this project demonstrates
+
+| Problem | How minipay solves it |
 |---|---|
-| `POST /auth/login` | usuario + contraseña → token |
-| `GET /auth/me` | quién soy |
-| `GET /me/balance` | mi saldo (en centavos) |
-| `GET /demo/info` | reglas de la demo (montos, límites, próximo reinicio) |
-| `POST /me/transfers` | mandarle dinero a otra persona |
-| `GET /me/movements` | mis últimos 50 movimientos |
-| `POST /merchant/charges` | (comercio) cobrarle a una persona |
-| `GET /merchant/charges` | (comercio) mis cobros |
-| `GET /me/charges` | cobros que me hicieron |
-| `POST /me/charges/{id}/pay` | pagar un cobro (con `Idempotency-Key`) |
-| `POST /me/charges/{id}/reject` | rechazar un cobro |
+| Balances that drift | **Double-entry ledger**: every movement has lines that sum to zero; balances are *computed*, never stored. |
+| Rounding errors | Money is stored as **integer cents** (`BIGINT`), never `float`. |
+| Charging twice (double click, network retry) | **Idempotency keys** (`Idempotency-Key` header) + `INSERT … ON CONFLICT DO NOTHING`. |
+| Two transfers at the same time overdrawing an account | **Row locks** (`SELECT … FOR UPDATE`) taken in a fixed order to avoid **deadlocks**. A concurrency test **fails if the lock is removed** (verified). |
+| Paying the same charge twice | The charge row is locked and its state (`pending → paid / rejected / expired`) is checked inside the transaction. |
+| Lost history | **Append-only ledger**: nothing is updated or deleted; corrections are new entries. |
+| Undetected bugs in production | A background **worker** reconciles the whole ledger every 15 minutes (it must sum to exactly 0). |
+| Guessable IDs | **UUIDv4** primary keys (no enumeration attacks). |
+| Leaked secrets | Secrets only in environment variables; **gitleaks** scans the full git history in CI. |
 
-**Concurrencia:** dos transferencias simultáneas desde la misma cuenta no pueden dejarla en negativo. Cada transferencia bloquea las dos cuentas (`SELECT ... FOR UPDATE`, siempre en el mismo orden para evitar deadlocks). Hay un test que lanza dos hilos a la vez y que **falla si se quita el bloqueo** (comprobado).
+## Tech stack
 
-**Idempotencia:** `POST /me/transfers` exige el header `Idempotency-Key` (un UUID nuevo por transferencia). Si el mismo pedido llega dos veces (doble click, reintento por mala señal), se cobra **una sola vez** y la segunda respuesta trae `Idempotent-Replayed: true`. Funciona también con los dos pedidos llegando al mismo tiempo (`INSERT ... ON CONFLICT DO NOTHING`).
+Python 3.12 · FastAPI · PostgreSQL 17 · SQLAlchemy 2 + Alembic · Redis + Arq (background worker) · bcrypt + JWT · vanilla HTML/CSS/JS frontend · pytest · Docker Compose · GitHub Actions · Render + Neon + Upstash.
 
-```bash
-curl -X POST localhost:8000/me/transfers \
-  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
-  -H "Idempotency-Key: $(python3 -c 'import uuid; print(uuid.uuid4())')" \
-  -d '{"to_username":"luis","amount_cents":10000}'
+## Architecture
+
+```
+Browser (HTML/CSS/JS)  ──►  FastAPI  ──►  PostgreSQL (ledger, accounts, charges…)
+                              │
+                              └── Redis ◄── Arq worker (reconciliation every 15 min, daily reset at 3:00 UY)
 ```
 
-## Probar la demo
+- `app/api/` — thin HTTP endpoints (validate → call a service → respond)
+- `app/services/` — business rules (ledger, transfers, charges, idempotency, daily reset)
+- `app/models/` — SQLAlchemy tables · `alembic/` — versioned migrations
+- `app/worker/` — background tasks · `app/static/` — frontend
+- `tests/` — 120 tests against a real PostgreSQL (each test runs in a rolled-back transaction)
 
-Usuarios: `ana`, `luis`, `marta`, `pedro`, `clinica-del-sur`, `admin`. Contraseña (pública, igual para todos): `demo1234`.
+## Main endpoints
+
+| Endpoint | What it does |
+|---|---|
+| `POST /auth/login` · `GET /auth/me` | log in (JWT) · who am I |
+| `GET /me/balance` · `GET /me/movements` | my balance · today's movements (`?all=true` for full history) |
+| `POST /me/transfers` | send money (requires `Idempotency-Key`) |
+| `POST /merchant/charges` · `GET /merchant/charges` | (merchant) create / list charges |
+| `GET /me/charges` · `POST /me/charges/{id}/pay` · `POST /me/charges/{id}/reject` | pay or reject a charge |
+| `GET /admin/reconciliation` · `POST /admin/reconciliation` | (admin) ledger check |
+| `GET /demo/info` | demo rules (amounts, limits, next reset) |
+
+## Run it locally
 
 ```bash
-curl -X POST localhost:8000/auth/login -H "Content-Type: application/json" \
-  -d '{"username":"ana","password":"demo1234"}'
-```
-
-La documentación interactiva de la API está en `http://localhost:8000/docs`. Ver [docs/Plan.md](docs/Plan.md).
-
-## Cómo funciona el dinero
-
-- **Libro de doble entrada:** cada movimiento tiene renglones que suman cero. El saldo se calcula, no se guarda.
-- **Centavos en enteros** (`BIGINT`), nunca `float`.
-- **Solo agregar:** los movimientos no se modifican ni se borran.
-
-Detalle en [docs/BackendSchema.md](docs/BackendSchema.md).
-
-## Cómo correrlo (local)
-
-```bash
-# 1. Clonar el repo
-git clone <url-del-repo>
+git clone https://github.com/kelvismoncayo95/minipay.git
 cd minipay
-
-# 2. Crear y activar el entorno virtual
-python3 -m venv venv
-source venv/bin/activate
-
-# 3. Instalar dependencias
+cp .env.example .env            # then fill in the values (see comments inside)
+python3 -m venv venv && source venv/bin/activate
 pip install -r requirements-dev.txt
 
-# 4. Crear el .env con POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB,
-#    DATABASE_URL y REDIS_URL (apuntando a localhost) y JWT_SECRET
-#    (generarlo con: python3 -c "import secrets; print(secrets.token_urlsafe(48))")
-
-# 5. Levantar la base y aplicar migraciones
-docker compose up -d postgres
-alembic upgrade head
-
-# 6. Cargar los datos demo (se puede repetir sin duplicar)
-python3 -m app.seed
-
-# 7. Correr los tests (usan una base aparte: <nombre>_test)
-pytest -v
+docker compose up -d            # api + worker + postgres + redis → http://localhost:8000
+pytest -q                       # tests use a separate database: <name>_test
 ```
 
-Para levantar todo (api + base + redis): `docker compose up -d` y probar `curl http://localhost:8000/health`.
+## Design docs (Spanish)
 
-## Stack
+- [docs/BackendSchema.md](docs/BackendSchema.md) — every table and every decision, with the *why*
+- [docs/Plan.md](docs/Plan.md) — the build plan, step by step
 
-- Python 3.12
-- FastAPI
-- PostgreSQL 17
-- SQLAlchemy 2 + Alembic
-- Redis
-- Docker Compose
-- pytest
+## License
 
-## Documentación
-
-- [docs/BackendSchema.md](docs/BackendSchema.md) — Base de datos y decisiones
-- [docs/Plan.md](docs/Plan.md) — Los 17 pasos
-
-## Licencia
-
-Proyecto de demostración. Sin licencia definida todavía.
+[MIT](LICENSE) © 2026 Kelvis Moncayo

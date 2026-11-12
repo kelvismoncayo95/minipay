@@ -1,0 +1,60 @@
+name: Tests
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: minipay
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: minipay
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U minipay"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Valores SOLO para CI (no son secretos reales).
+      DATABASE_URL: postgresql+psycopg://minipay:ci_password@localhost:5432/minipay
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET: ci-solo-para-tests-no-es-un-secreto-real
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements-dev.txt
+
+      - name: Migraciones
+        run: alembic upgrade head
+
+      - name: Tests
+        run: pytest -q -rf
+
+  secretos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # revisa TODO el historial, no solo el último commit
+      - name: Buscar secretos con gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
