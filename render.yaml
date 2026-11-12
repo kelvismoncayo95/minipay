@@ -1,0 +1,21 @@
+# Blueprint de Render: crea el servicio web de minipay a partir de este repo.
+# En Render: New → Blueprint → elegir el repo. Los valores con `sync: false`
+# se pegan a mano en el panel de Render (NUNCA en este archivo ni en git).
+services:
+  - type: web
+    name: minipay
+    runtime: docker
+    plan: free
+    region: virginia          # cerca de Neon/Upstash en us-east-1
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true          # cada push a main despliega solo
+    envVars:
+      - key: DATABASE_URL     # Neon (PostgreSQL)
+        sync: false
+      - key: REDIS_URL        # Upstash (rediss://...)
+        sync: false
+      - key: JWT_SECRET       # Render genera uno aleatorio
+        generateValue: true
+      - key: RUN_WORKER       # worker de Arq dentro del mismo contenedor
+        value: "true"
