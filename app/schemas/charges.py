@@ -21,6 +21,7 @@ class ChargeOut(BaseModel):
     amount_cents: int
     description: str
     status: str
+    transaction_id: uuid.UUID | None  # el movimiento del pago (para el comprobante)
     created_at: datetime
     resolved_at: datetime | None
 
@@ -33,6 +34,7 @@ class ChargeOut(BaseModel):
             amount_cents=c.amount,
             description=c.description,
             status=c.status,
+            transaction_id=c.transaction_id,
             created_at=c.created_at,
             resolved_at=c.resolved_at,
         )
