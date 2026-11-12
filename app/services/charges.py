@@ -109,3 +109,43 @@ def idempotent_pay(
 
     _, repetido = run_idempotent(db, payer_id, key, fingerprint("pay", charge_id), accion)
     return db.get(Charge, charge_id), repetido
+
+
+def refund_charge(db: Session, charge_id: uuid.UUID, merchant_id: uuid.UUID) -> Charge:
+    """El comercio devuelve el TOTAL de un cobro pagado. No hace commit.
+
+    Igual que al pagar: primero se bloquea el cobro (así no se reembolsa dos veces a la vez)
+    y después las cuentas (dentro de move_money).
+    """
+    charge = db.scalars(
+        select(Charge)
+        .where(Charge.id == charge_id, Charge.merchant_id == merchant_id)
+        .with_for_update()
+    ).first()
+    if charge is None:
+        raise ChargeNotFoundError("Cobro no encontrado.")
+    if charge.status != "paid":
+        raise ChargeAlreadyResolvedError(
+            "Solo se puede reembolsar un cobro pagado (y una sola vez)."
+        )
+    origen = get_account_for_user(db, charge.merchant_id)
+    destino = get_account_for_user(db, charge.payer_id)
+    tx = move_money(db, origen.id, destino.id, charge.amount, kind="refund")
+    charge.status = "refunded"
+    charge.refund_transaction_id = tx.id
+    charge.refunded_at = datetime.now(UTC)
+    db.flush()
+    return charge
+
+
+def idempotent_refund(
+    db: Session, merchant_id: uuid.UUID, key: str, charge_id: uuid.UUID
+) -> tuple[Charge, bool]:
+    """Reembolso protegido contra pedidos repetidos (misma Idempotency-Key)."""
+
+    def accion() -> LedgerTransaction:
+        charge = refund_charge(db, charge_id, merchant_id)
+        return db.get(LedgerTransaction, charge.refund_transaction_id)
+
+    _, repetido = run_idempotent(db, merchant_id, key, fingerprint("refund", charge_id), accion)
+    return db.get(Charge, charge_id), repetido

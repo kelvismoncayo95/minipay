@@ -12,18 +12,25 @@ from app.models.user import User
 
 class Charge(Base):
     """Cobro: pending → paid (se movió el dinero), rejected (la persona lo rechazó)
-    o expired (venció en el reinicio diario)."""
+    o expired (venció en el reinicio diario). Un cobro paid puede pasar a refunded
+    (el comercio devolvió el total)."""
 
     __tablename__ = "charges"
     __table_args__ = (
         CheckConstraint("amount > 0", name="ck_charges_amount_positive"),
         CheckConstraint(
-            "status IN ('pending', 'paid', 'rejected', 'expired')",
+            "status IN ('pending', 'paid', 'rejected', 'expired', 'refunded')",
             name="ck_charges_status",
         ),
+        # Pagado o reembolsado ⇔ tiene el movimiento del pago.
         CheckConstraint(
-            "(status = 'paid') = (transaction_id IS NOT NULL)",
+            "(status IN ('paid', 'refunded')) = (transaction_id IS NOT NULL)",
             name="ck_charges_paid_has_transaction",
+        ),
+        # Reembolsado ⇔ tiene el movimiento del reembolso.
+        CheckConstraint(
+            "(status = 'refunded') = (refund_transaction_id IS NOT NULL)",
+            name="ck_charges_refund_has_transaction",
         ),
     )
 
@@ -36,11 +43,15 @@ class Charge(Base):
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("ledger_transactions.id")
     )
+    refund_transaction_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("ledger_transactions.id")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
     )
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     merchant: Mapped[User] = relationship(foreign_keys=[merchant_id])
     payer: Mapped[User] = relationship(foreign_keys=[payer_id])

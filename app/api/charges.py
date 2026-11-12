@@ -15,6 +15,7 @@ from app.services.charges import (
     ChargeNotFoundError,
     create_charge,
     idempotent_pay,
+    idempotent_refund,
     list_for_merchant,
     list_for_payer,
     reject_charge,
@@ -67,6 +68,25 @@ def merchant_charges(
     merchant: User = Depends(require_merchant), db: Session = Depends(get_db)
 ) -> list[ChargeOut]:
     return [ChargeOut.from_charge(c) for c in list_for_merchant(db, merchant.id)]
+
+
+@merchant_router.post("/charges/{charge_id}/refund", response_model=ChargeOut)
+def refund(
+    charge_id: uuid.UUID,
+    response: Response,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=8, max_length=100),
+    merchant: User = Depends(require_merchant),
+    db: Session = Depends(get_db),
+) -> ChargeOut:
+    """Devolver el total de un cobro pagado (una sola vez)."""
+    try:
+        charge, repetido = idempotent_refund(db, merchant.id, idempotency_key, charge_id)
+    except tuple(ERRORES) as error:
+        raise to_http(error) from None
+    db.commit()
+    if repetido:
+        response.headers["Idempotent-Replayed"] = "true"
+    return ChargeOut.from_charge(charge)
 
 
 @payer_router.get("/charges", response_model=list[ChargeOut])

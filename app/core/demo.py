@@ -30,4 +30,6 @@ DAILY_PAYMENT_LIMIT = 200_000  # US$2.000 pagados a comercios por día de demo
 LIMITS_BY_KIND = {
     "transfer": (MAX_TRANSFER, DAILY_TRANSFER_LIMIT),
     "payment": (MAX_PAYMENT, DAILY_PAYMENT_LIMIT),
+    # Un reembolso devuelve un pago ya hecho: tope = un cobro, sin límite diario.
+    "refund": (MAX_PAYMENT, None),
 }
