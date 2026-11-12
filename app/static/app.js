@@ -39,10 +39,10 @@ const ESTADOS = { pending: "Pendiente", paid: "Pagado", rejected: "Rechazado", e
 const CON_COMPROBANTE = new Set(["transfer", "payment", "refund"]);
 
 const USUARIOS = [
-  { u: "ana", nombre: "Ana", icono: "👩", desc: "Persona: elige saldo, transfiere y paga cobros" },
-  { u: "luis", nombre: "Luis", icono: "👨", desc: "Persona" },
-  { u: "marta", nombre: "Marta", icono: "👩‍🦰", desc: "Persona" },
-  { u: "pedro", nombre: "Pedro", icono: "🧑", desc: "Persona" },
+  { u: "ana", nombre: "Ana", icono: "👩", desc: "Persona: transfiere y paga cobros" },
+  { u: "luis", nombre: "Luis", icono: "👨", desc: "Persona: transfiere y paga cobros" },
+  { u: "marta", nombre: "Marta", icono: "👩‍🦰", desc: "Persona: transfiere y paga cobros" },
+  { u: "pedro", nombre: "Pedro", icono: "🧑", desc: "Persona: transfiere y paga cobros" },
   { u: "clinica-del-sur", nombre: "Clínica del Sur", icono: "🏥", desc: "Comercio: le cobra a las personas" },
   { u: "admin", nombre: "Admin", icono: "🛡️", desc: "Revisa que todo el dinero cuadre" },
 ];
@@ -671,7 +671,7 @@ async function pantallaAdmin(run) {
   pantalla({
     clase: run ? `resultado ${run.ok ? "ok" : "mal"}` : "",
     titulo: "Conciliación del libro",
-    explica: "El dinero solo pasa de una cuenta a otra, así que si sumás todo tiene que dar exactamente $0. Si no da 0, hay un error. El sistema lo revisa solo cada 15 minutos.",
+    explica: "El dinero solo pasa de una cuenta a otra, así que si sumás todo tiene que dar exactamente US$0. Si no da 0, hay un error. El sistema lo revisa solo cada 15 minutos.",
     cuerpo: run
       ? [
           h("div", { class: "sello" }, run.ok ? "✔" : "✘"),

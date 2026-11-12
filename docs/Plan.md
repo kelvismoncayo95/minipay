@@ -16,13 +16,13 @@
 | 8 | Límites | máximo por operación, límite diario, 5 cambios de saldo por hora (contados en la base, bajo el bloqueo) | ✅ 2026-11-11 |
 | 9 | Comercios y cobros | la Clínica del Sur (demo) cobra a un usuario | ✅ 2026-11-11 |
 | 10 | Cola en segundo plano | worker con Arq; conciliación "todo suma cero" cada 15 min | ✅ 2026-11-11 |
-| 11 | Comprobantes PDF | comprobante de cada movimiento (ReportLab) | ⏳ |
-| 12 | Webhooks y reembolsos | aviso al comercio; reembolso total de un cobro | |
+| 11 | Comprobantes PDF | comprobante de transferencias, pagos y reembolsos (ReportLab, al momento) | ✅ 2026-11-11 |
+| 12 | Reembolsos (webhooks fuera) | reembolso total de un cobro pagado; webhooks descartados: el comercio demo no tiene servidor (diseño en el README) | ✅ 2026-11-11 |
 | 13 | Frontend | HTML/CSS/JS vanilla, con aviso "dinero de mentira" | ✅ 2026-11-11 (adelantado) |
-| 14 | Deploy | Render + Neon + Upstash con `render.yaml` (worker en el mismo contenedor) | ⏳ preparado, falta publicar |
-| 15 | CI | GitHub Actions: tests + gitleaks en cada push | ⏳ configurado, se verifica en el primer push |
-| 16 | Panel admin y control | el admin ve todo; verificación "todas las cuentas suman cero" | |
-| 17 | Cierre de portafolio | README final, capturas, decisiones explicadas | |
+| 14 | Deploy | Render + Neon + Upstash con `render.yaml` (worker en el mismo contenedor) — https://minipay-kcxy.onrender.com | ✅ 2026-11-11 |
+| 15 | CI | GitHub Actions: tests + gitleaks en cada push | ✅ 2026-11-11 |
+| 16 | Panel admin y control | conciliación "todo suma cero" (automática y a pedido) | ✅ 2026-11-11 |
+| 17 | Cierre de portafolio | README en inglés con demo en vivo, capturas y decisiones | ✅ 2026-11-11 |
 
 **Orden cambiado el 2026-11-11 (pedido de Kelvis):** después del paso 10 se hace 13 → 14 → 15, y luego 11, 12, 16 y 17. Así se llega antes a una demo pública.
 
